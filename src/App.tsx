@@ -148,7 +148,6 @@ export default function App() {
 }
 
 function KanbanMain({ user, onLogout }) {
-  // Começamos com os dados vazios (não usamos mais o localStorage para as tabelas)
   const [tasks, setTasks] = useState([]);
   const [clients, setClients] = useState([]);
   const [responsibles, setResponsibles] = useState([]);
@@ -180,17 +179,40 @@ function KanbanMain({ user, onLogout }) {
     fetchCloudData();
   }, []);
 
-  // 2. Sempre que os dados mudam localmente, guarda-os no Supabase (Sem localStorage)
+  // 2. Sempre que os dados mudam localmente, guarda-os no Supabase (Formatados de forma segura)
   useEffect(() => {
-    if (isCloudSynced && tasks.length > 0) window.supabaseClient.from('tasks').upsert(tasks).then();
+    if (isCloudSynced && tasks.length > 0) {
+      const safeTasks = tasks.map(t => ({
+        ...t,
+        durationMin: parseInt(t.durationMin) || 0,
+        timerStart: t.timerStart || null,
+        timerElapsed: t.timerElapsed || 0,
+        clientId: t.clientId || null,
+        responsibleId: t.responsibleId || null,
+        dueDate: t.dueDate || null,
+        waitingFor: t.waitingFor || null,
+      }));
+
+      window.supabaseClient.from('tasks').upsert(safeTasks).then(({ error }) => {
+        if (error) console.error("Erro ao salvar tarefas no banco:", error);
+      });
+    }
   }, [tasks, isCloudSynced]);
 
   useEffect(() => {
-    if (isCloudSynced && clients.length > 0) window.supabaseClient.from('clients').upsert(clients).then();
+    if (isCloudSynced && clients.length > 0) {
+      window.supabaseClient.from('clients').upsert(clients).then(({ error }) => {
+        if (error) console.error("Erro ao salvar clientes no banco:", error);
+      });
+    }
   }, [clients, isCloudSynced]);
 
   useEffect(() => {
-    if (isCloudSynced && responsibles.length > 0) window.supabaseClient.from('responsibles').upsert(responsibles).then();
+    if (isCloudSynced && responsibles.length > 0) {
+      window.supabaseClient.from('responsibles').upsert(responsibles).then(({ error }) => {
+        if (error) console.error("Erro ao salvar responsáveis no banco:", error);
+      });
+    }
   }, [responsibles, isCloudSynced]);
 
   const [activeTab, setActiveTab] = useState('board'); 
@@ -266,10 +288,15 @@ function KanbanMain({ user, onLogout }) {
     if (modal.mode === "add") {
       const newTask = {
         id: nextId(),
-        ...f,
         title: f.title.trim(),
         description: f.description.trim(),
+        priority: f.priority || 'Média',
+        durationMin: parseInt(f.durationMin) || 0,
+        clientId: f.clientId || null,
+        responsibleId: f.responsibleId || null,
+        dueDate: f.dueDate || null,
         status: f.status || modal.status,
+        waitingFor: f.waitingFor || null,
         checklist: f.checklist.filter((c) => c.text.trim()),
         timerRunning: false,
         timerStart: null,
@@ -296,11 +323,17 @@ function KanbanMain({ user, onLogout }) {
           }
 
           return { 
-            ...t, ...f, 
+            id: t.id,
             title: f.title.trim(), 
             description: f.description.trim(), 
-            checklist: f.checklist.filter((c) => c.text.trim()),
+            priority: f.priority || 'Média',
+            durationMin: parseInt(f.durationMin) || 0,
+            clientId: f.clientId || null,
+            responsibleId: f.responsibleId || null,
+            dueDate: f.dueDate || null,
             status: f.status,
+            waitingFor: f.waitingFor || null,
+            checklist: f.checklist.filter((c) => c.text.trim()),
             timerRunning, timerElapsed, timerStart
           };
         })
