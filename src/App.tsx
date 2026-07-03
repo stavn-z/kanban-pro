@@ -4,7 +4,7 @@ import {
   Users, Building2, BarChart3, LogOut, RotateCcw, 
   Filter, AlertTriangle, GripVertical, Download, 
   Play, Square, CheckCircle2, User, CheckSquare,
-  HelpCircle, ChevronDown, LayoutDashboard, Mail, Check
+  HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy
 } from "lucide-react";
 
 // --- Configurações e Dados Iniciais ---
@@ -28,10 +28,10 @@ const PRIORITY_STYLE = {
 };
 
 const initialClients = [
-  { id: "c1", name: "Mackenzie", contact: "João Silva", email: "joao@mackenzie.br" },
-  { id: "c2", name: "UBEC", contact: "", email: "" },
-  { id: "c3", name: "Afya", contact: "", email: "" },
-  { id: "c4", name: "Celso Lisboa", contact: "", email: "" },
+  { id: "c1", name: "Mackenzie", emails: ["joao@mackenzie.br"] },
+  { id: "c2", name: "UBEC", emails: [] },
+  { id: "c3", name: "Afya", emails: [] },
+  { id: "c4", name: "Celso Lisboa", emails: [] },
 ];
 
 const initialResponsibles = [
@@ -811,7 +811,8 @@ function CustomSelect({ label, value, onChange, options, hasError, required }) {
 
 // --- Componente: Fechamento Semanal (Automação de E-mails) ---
 function ClosureModal({ tasks, clients, onClose, onFormalize }) {
-  // Agrupar tarefas por cliente
+  const [copiedId, setCopiedId] = useState(null);
+
   const tasksByClient = useMemo(() => {
     return tasks.reduce((acc, task) => {
       const cId = task.clientId || 'no_client';
@@ -821,11 +822,8 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
     }, {});
   }, [tasks]);
 
-  const generateEmailLink = (clientTasks, clientData) => {
+  const generateEmailText = (clientTasks, clientData) => {
     const clientName = clientData ? clientData.name : 'Cliente';
-    const emailTo = clientData ? clientData.email : '';
-    const subject = `Atualização Semanal de Demandas - ${clientName}`;
-    
     let body = `Olá equipe ${clientName},\n\nAbaixo está o resumo das demandas executadas e finalizadas nesta semana:\n\n`;
     
     clientTasks.forEach(t => {
@@ -834,11 +832,24 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
       body += `\n`;
     });
     
-    body += `Qualquer dúvida, estamos à disposição.\n\nAtenciosamente.`;
+    body += `Qualquer dúvida, estamos à disposição.\n\n`;
+    return body;
+  };
+
+  const generateEmailLink = (clientTasks, clientData) => {
+    const emails = clientData?.emails || (clientData?.email ? [clientData.email] : []);
+    const emailTo = emails.join(',');
+    const subject = `Atualização Semanal de Demandas - ${clientData ? clientData.name : 'Cliente'}`;
+    const body = generateEmailText(clientTasks, clientData);
     
-    // Link direto do Gmail Web (Abre na mesma aba/janela do navegador atual)
-    // Se quiser voltar para o Outlook ou Mail do Windows, troque para: return `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     return `https://mail.google.com/mail/?view=cm&fs=1&to=${emailTo}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  const handleCopyText = (clientTasks, clientData, clientId) => {
+    const text = generateEmailText(clientTasks, clientData);
+    navigator.clipboard.writeText(text);
+    setCopiedId(clientId);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -881,14 +892,24 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
                   ))}
                 </div>
                 
-                <a 
-                  href={generateEmailLink(clientTasks, clientData)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-lg text-xs font-medium transition-colors"
-                >
-                  <Mail size={14} /> Abrir no Gmail (Web)
-                </a>
+                <div className="flex items-center gap-2">
+                  <a 
+                    href={generateEmailLink(clientTasks, clientData)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-lg text-xs font-medium transition-colors"
+                  >
+                    <Mail size={14} /> Abrir no Gmail
+                  </a>
+                  
+                  <button 
+                    onClick={() => handleCopyText(clientTasks, clientData, clientId)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20 border border-indigo-500/20 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    {copiedId === clientId ? <Check size={14} /> : <Copy size={14} />} 
+                    {copiedId === clientId ? "Copiado!" : "Copiar Texto"}
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -908,7 +929,7 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
   );
 }
 
-// --- Demais Painéis (Timer, Responsables, Clients, Reports, TaskModal) permanecem idênticos ao código anterior ---
+// --- Demais Painéis ---
 
 function TimerPanel({ tasks, now, getElapsed, onToggleTimer }) {
   const activeTasks = tasks.filter(t => t.timerRunning || t.timerElapsed > 0).sort((a,b) => b.timerRunning - a.timerRunning);
@@ -1001,54 +1022,183 @@ function ResponsiblesPanel({ responsibles, setResponsibles, tasks, setTasks }) {
   );
 }
 
+// --- Componentes Reestruturados para o Modal de Clientes ---
+
+function ClientModal({ modal, setModal, setClients }) {
+  const [form, setForm] = useState(modal.form);
+  const [newEmail, setNewEmail] = useState("");
+  const [validationError, setValidationError] = useState(null);
+
+  const handleAddEmail = () => {
+    if (!newEmail.trim()) return;
+    if (!newEmail.includes("@")) {
+      setValidationError("Insira um e-mail válido.");
+      return;
+    }
+    setForm(prev => ({ ...prev, emails: [...prev.emails, newEmail.trim()] }));
+    setNewEmail("");
+    setValidationError(null);
+  };
+
+  const handleRemoveEmail = (index) => {
+    setForm(prev => ({ ...prev, emails: prev.emails.filter((_, i) => i !== index) }));
+  };
+
+  const saveClient = () => {
+    if (!form.name.trim()) {
+      setValidationError("O nome do cliente é obrigatório.");
+      return;
+    }
+
+    if (modal.mode === "add") {
+      setClients(prev => [...prev, { ...form, id: 'c' + Date.now() }]);
+    } else {
+      setClients(prev => prev.map(c => c.id === form.id ? form : c));
+    }
+    setModal(null);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] fade-in">
+      <div className="w-full max-w-md rounded-2xl bg-[#161821] border border-[#2a2d3d] flex flex-col shadow-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
+          <h3 className="font-bold text-base text-white">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
+          <button onClick={() => setModal(null)} className="p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-[#2a2d3d] transition-colors"><X size={18} /></button>
+        </div>
+        
+        <div className="p-6 flex flex-col gap-5">
+          <div>
+            <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">Nome do Cliente *</label>
+            <input 
+              autoFocus 
+              value={form.name} 
+              onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationError(null); }} 
+              className={`w-full bg-[#0f1015] border rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors ${validationError?.includes("nome") ? "border-red-500" : "border-[#2a2d3d]"}`} 
+              placeholder="Ex: Acme Corp" 
+            />
+          </div>
+          
+          <div>
+            <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">E-mails (Contatos do Cliente)</label>
+            <div className="flex items-center gap-2 mb-3">
+              <input 
+                value={newEmail} 
+                onChange={e => setNewEmail(e.target.value)} 
+                onKeyDown={e => e.key === 'Enter' && handleAddEmail()}
+                className="flex-1 bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors" 
+                placeholder="Ex: gestor@empresa.com" 
+              />
+              <button 
+                onClick={handleAddEmail} 
+                className="px-4 py-2.5 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <Plus size={16}/> Adicionar
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 max-h-40 overflow-y-auto kp-scroll pr-1">
+              {form.emails.length === 0 && (
+                <div className="text-center text-xs text-neutral-500 py-3 border border-dashed border-[#2a2d3d] rounded-lg">
+                  Nenhum e-mail adicionado ainda.
+                </div>
+              )}
+              {form.emails.map((email, index) => (
+                <div key={index} className="flex items-center justify-between bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2 text-sm text-neutral-300">
+                    <Mail size={14} className="text-purple-400" /> {email}
+                  </div>
+                  <button onClick={() => handleRemoveEmail(index)} className="p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className="px-6 py-4 border-t border-[#2a2d3d] flex items-center justify-end gap-3 bg-[#1a1c24]">
+          <button onClick={() => setModal(null)} className="text-sm px-4 py-2 rounded-lg text-neutral-400 hover:text-white transition-colors">Cancelar</button>
+          <button onClick={saveClient} className="text-sm px-6 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors">Salvar Cliente</button>
+        </div>
+      </div>
+      
+      {validationError && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 fade-in z-[80] font-medium text-sm">
+          <AlertTriangle size={16} /> {validationError}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClientsPanel({ clients, setClients, tasks, setTasks }) {
-  const [form, setForm] = useState({ name: '', contact: '', email: '' });
-  const add = () => { if (!form.name.trim()) return; setClients([...clients, { id: 'c'+Date.now(), ...form }]); setForm({ name: '', contact: '', email: '' }); };
-  const remove = (id) => { setClients(prev => prev.filter(c => c.id !== id)); setTasks(prev => prev.map(t => t.clientId === id ? { ...t, clientId: '' } : t)); };
+  const [clientModal, setClientModal] = useState(null);
+
+  const openAdd = () => setClientModal({ mode: 'add', form: { name: '', emails: [] } });
+  
+  const openEdit = (client) => {
+    // Normalização para lidar com possíveis dados antigos salvos no LocalStorage (strings em vez de array)
+    const emailsArray = client.emails ? client.emails : (client.email ? client.email.split(',').map(e => e.trim()) : []);
+    setClientModal({ mode: 'edit', form: { ...client, emails: emailsArray } });
+  };
+
+  const remove = (id) => { 
+    setClients(prev => prev.filter(c => c.id !== id)); 
+    setTasks(prev => prev.map(t => t.clientId === id ? { ...t, clientId: '' } : t)); 
+  };
 
   return (
     <div className="p-6 border-b border-[#2a2d3d] bg-[#1a1c24] fade-in shadow-inner">
-      <div className="flex items-center gap-2 mb-6 text-purple-400">
-        <Building2 size={20} />
-        <h2 className="text-lg font-semibold text-white">Clientes</h2>
-      </div>
-      <div className="bg-[#161821] p-5 rounded-xl border border-[#2a2d3d] mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div>
-            <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase tracking-wider font-medium">Nome *</label>
-            <input value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500" placeholder="Ex: Acme Corp" />
-          </div>
-          <div>
-            <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase tracking-wider font-medium">Contato</label>
-            <input value={form.contact} onChange={e=>setForm({...form, contact: e.target.value})} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500" placeholder="Ex: João Silva" />
-          </div>
-          <div className="flex gap-3 items-end">
-            <div className="flex-1">
-              <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase tracking-wider font-medium">E-mail</label>
-              <input value={form.email} onChange={e=>setForm({...form, email: e.target.value})} onKeyDown={e=>e.key === 'Enter' && add()} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500" placeholder="Ex: joao@acme.com" />
-            </div>
-            <button onClick={add} className="h-[38px] px-5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"><Plus size={16}/> Adicionar</button>
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2 text-purple-400">
+          <Building2 size={20} />
+          <h2 className="text-lg font-semibold text-white">Clientes</h2>
         </div>
+        <button onClick={openAdd} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+          <Plus size={16}/> Novo Cliente
+        </button>
       </div>
+      
       <div className="flex flex-col gap-2 max-w-4xl">
+        {clients.length === 0 && (
+          <div className="text-center text-sm text-neutral-500 py-8 border border-dashed border-[#2a2d3d] rounded-xl">
+            Nenhum cliente cadastrado.
+          </div>
+        )}
         {clients.map(c => {
           const count = tasks.filter(t => t.clientId === c.id).length;
+          const emailsArray = c.emails ? c.emails : (c.email ? c.email.split(',').map(e => e.trim()) : []);
+          
           return (
-            <div key={c.id} className="flex items-center justify-between bg-[#161821] border border-[#2a2d3d] rounded-lg p-3 hover:border-[#3f4359] transition-colors group">
+            <div 
+              key={c.id} 
+              onClick={() => openEdit(c)}
+              className="flex items-center justify-between bg-[#161821] border border-[#2a2d3d] rounded-lg p-3 hover:border-purple-500/50 hover:bg-[#1a1c24] transition-all group cursor-pointer"
+            >
               <div className="flex items-center gap-4">
                 <div className="p-2 bg-[#0f1015] rounded-md border border-[#2a2d3d]"><Building2 size={16} className="text-purple-400" /></div>
                 <div>
                   <div className="text-sm font-semibold text-neutral-200">{c.name}</div>
-                  {(c.contact || c.email) && <div className="text-[11px] text-neutral-500 mt-0.5">{c.contact} {c.contact && c.email && '•'} {c.email}</div>}
+                  <div className="text-[11px] text-neutral-500 mt-0.5">
+                    {emailsArray.length === 0 ? "Sem e-mails cadastrados" : `${emailsArray.length} e-mail(s) cadastrado(s)`}
+                  </div>
                 </div>
                 <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-md ml-2">{count} tarefas</span>
               </div>
-              <button onClick={() => remove(c.id)} className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors opacity-0 group-hover:opacity-100"><X size={16}/></button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); remove(c.id); }} 
+                className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Trash2 size={16}/>
+              </button>
             </div>
           )
         })}
       </div>
+
+      {clientModal && (
+        <ClientModal modal={clientModal} setModal={setClientModal} setClients={setClients} />
+      )}
     </div>
   );
 }
@@ -1075,10 +1225,11 @@ function ReportsPanel({ tasks, clients, responsibles, now, getElapsed }) {
     downloadCSV([headers.join(','), ...rows], 'horas.csv');
   };
   const exportClientsCSV = () => {
-    const headers = ["Cliente", "Contato", "E-mail", "Total Tarefas"];
+    const headers = ["Cliente", "E-mails", "Total Tarefas"];
     const rows = clients.map(c => {
       const count = tasks.filter(t => t.clientId === c.id).length;
-      return [`"${c.name}"`, `"${c.contact}"`, `"${c.email}"`, count].join(',');
+      const emailsStr = c.emails ? c.emails.join('; ') : (c.email || '');
+      return [`"${c.name}"`, `"${emailsStr}"`, count].join(',');
     });
     downloadCSV([headers.join(','), ...rows], 'clientes.csv');
   };
