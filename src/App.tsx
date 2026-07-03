@@ -7,6 +7,16 @@ import {
   HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy, ClipboardList, Cloud
 } from "lucide-react";
 
+// ==========================================
+// CONFIGURAÇÃO DO BANCO DE DADOS (SUPABASE)
+// ==========================================
+const supabaseUrl = 'https://wztalukwyzqbjcvhrunt.supabase.co'; 
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dGFsdWt3eXpxYmpjdmhydW50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODM2NDQsImV4cCI6MjA5ODY1OTY0NH0.pvYYtBfK1HY73UbSadb8UiZARYvDFzxfB7qDwFLNUr8'; 
+
+// Inicializa a ligação com o banco de dados
+const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+// ==========================================
+
 // --- Configurações e Dados Iniciais ---
 const COLUMNS = [
   { id: "backlog", name: "Backlog", dot: "bg-indigo-500", accent: "border-indigo-500", bg: "bg-indigo-500/10", btn: "bg-indigo-600 hover:bg-indigo-500", help: "Ideias, novas demandas e solicitações que ainda não foram priorizadas ou analisadas pela equipa." },
@@ -26,36 +36,11 @@ const PRIORITY_STYLE = {
   Alta: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", dot: "bg-red-500" },
 };
 
-const initialClients = [
-  { id: "c1", name: "Mackenzie", emails: ["joao@mackenzie.br"] },
-  { id: "c2", name: "UBEC", emails: [] },
-  { id: "c3", name: "Afya", emails: [] },
-  { id: "c4", name: "Celso Lisboa", emails: [] },
-];
-
-const initialResponsibles = [
-  { id: "r1", name: "Othávio Campbell" },
-  { id: "r2", name: "Bianca" },
-];
-
-const initialTasks = [
-  {
-    id: 101,
-    title: "RELATÓRIO DE DADOS",
-    description: "Verificar possibilidade de adicionar o tempo de duração em cada etapa do registro nos relatórios.",
-    priority: "Média",
-    clientId: "c2",
-    responsibleId: "r1",
-    status: "backlog",
-    durationMin: 120,
-    dueDate: "",
-    waitingFor: "",
-    checklist: [{ id: 1, text: "Validar com a equipa", done: false }],
-    timerRunning: false,
-    timerStart: null,
-    timerElapsed: 0,
-  }
-];
+// Dados de exemplo apagados para evitar migração de "fantasmas". 
+// Agora o sistema depende apenas do localStorage ou começa limpo.
+const initialClients = [];
+const initialResponsibles = [];
+const initialTasks = [];
 
 // --- Funções Auxiliares ---
 const nextId = () => Math.random().toString(36).substr(2, 9);
@@ -198,8 +183,6 @@ function KanbanMain({ user, onLogout }) {
 
     setMigrating(true);
     try {
-      const supabaseUrl = 'https://wztalukwyzqbjcvhrunt.supabase.co'; 
-      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dGFsdWt3eXpxYmpjdmhydW50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODM2NDQsImV4cCI6MjA5ODY1OTY0NH0.pvYYtBfK1HY73UbSadb8UiZARYvDFzxfB7qDwFLNUr8'; 
       const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
       // 1. Migrar Clientes
