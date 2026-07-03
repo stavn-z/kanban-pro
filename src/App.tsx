@@ -258,6 +258,11 @@ function KanbanMain({ user, onLogout }) {
             timerStart = null;
           }
 
+          // Atualizar o tempo real de execução se for editada manualmente a duração num card concluído
+          if (!timerRunning && (f.status === 'done' || f.status === 'formalize' || f.status === 'cancelled')) {
+            timerElapsed = (parseInt(f.durationMin) || 0) * 60;
+          }
+
           return { 
             ...t, ...f, 
             title: f.title.trim(), 
@@ -291,11 +296,18 @@ function KanbanMain({ user, onLogout }) {
     if (!task) return;
 
     if (newStatus === 'done' && task.status !== 'done') {
+      // Pega a data de hoje garantindo o fuso horário local (Brasil)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const localDateStr = `${year}-${month}-${day}`;
+
       // Abre o Modal Obrigatório de Conclusão em vez de mover direto
       setDonePrompt({
         taskId,
         targetId,
-        date: new Date().toISOString().split('T')[0], // Hoje
+        date: localDateStr,
         durationMin: Math.round(task.timerElapsed / 60) || task.durationMin || ""
       });
       return;
@@ -362,8 +374,9 @@ function KanbanMain({ user, onLogout }) {
           timerStart = null;
         }
         
-        // Abre o pop-up de "Aguardando Quem"
-        if (newStatus === 'waiting' && !taskToMove.waitingFor) {
+        // Abre o pop-up de "Aguardando Quem" toda vez que entra na etapa
+        if (newStatus === 'waiting') {
+          taskToMove.waitingFor = ''; // Limpa para forçar a escolha
           setTimeout(() => setWaitingPrompt(taskToMove.id), 10);
         }
       }
@@ -423,6 +436,17 @@ function KanbanMain({ user, onLogout }) {
         
         .fade-in { animation: fadeIn 0.2s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Remove as setinhas dos campos numéricos (Chrome, Safari, Edge, Opera) */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
+        }
+        /* Remove as setinhas no Firefox */
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
       `}</style>
 
       {/* Header Fixo */}
