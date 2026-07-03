@@ -4,7 +4,7 @@ import {
   Users, Building2, BarChart3, LogOut, RotateCcw, 
   Filter, AlertTriangle, GripVertical, Download, 
   Play, Square, CheckCircle2, User, CheckSquare,
-  HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy
+  HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy, ClipboardList
 } from "lucide-react";
 
 // --- Configurações e Dados Iniciais ---
@@ -162,9 +162,13 @@ function KanbanMain({ user, onLogout }) {
   const [modal, setModal] = useState(null); 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [validationError, setValidationError] = useState(null);
+  
+  // Modais Secundários (Fluxos de Trabalho)
   const [waitingPrompt, setWaitingPrompt] = useState(null);
+  const [donePrompt, setDonePrompt] = useState(null);
   const [closureModal, setClosureModal] = useState(false);
   const [dragOverId, setDragOverId] = useState(null);
+  
   const [now, setNow] = useState(Date.now());
 
   // Salvamento Automático
@@ -198,7 +202,7 @@ function KanbanMain({ user, onLogout }) {
   const overallProgress = activeTasksCount ? Math.round((doneCount / activeTasksCount) * 100) : 0;
   const doneTasks = tasks.filter(t => t.status === 'done');
 
-  // Modais e Ações
+  // Modais Principais
   const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: "", dueDate: "", status: "", waitingFor: "", checklist: [] };
 
   function openAddModal(status) {
@@ -281,33 +285,63 @@ function KanbanMain({ user, onLogout }) {
     );
   }
 
-  const toggleChecklistItem = (taskId, itemId) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id !== taskId) return t;
-      
-      const newChecklist = t.checklist.map(c => c.id === itemId ? { ...c, done: !c.done } : c);
-      const allDone = newChecklist.length > 0 && newChecklist.every(c => c.done);
-      
-      let newStatus = t.status;
-      let timerRunning = t.timerRunning;
-      let timerElapsed = t.timerElapsed;
-      let timerStart = t.timerStart;
+  // --- Sistema Centralizado de Movimentação (Intercepta "Concluído") ---
+  const handleRequestMove = (taskId, targetId, newStatus) => {
+    const task = tasks.find(t => t.id.toString() === taskId.toString());
+    if (!task) return;
 
-      // Auto Move para Concluído se todos os itens forem checados
-      if (allDone && t.status !== 'done' && t.status !== 'cancelled' && t.status !== 'formalize') {
-        newStatus = 'done';
-        if (timerRunning) {
-          timerRunning = false;
-          timerElapsed += (Date.now() - timerStart) / 1000;
-          timerStart = null;
-        }
-      }
+    if (newStatus === 'done' && task.status !== 'done') {
+      // Abre o Modal Obrigatório de Conclusão em vez de mover direto
+      setDonePrompt({
+        taskId,
+        targetId,
+        date: new Date().toISOString().split('T')[0], // Hoje
+        durationMin: Math.round(task.timerElapsed / 60) || task.durationMin || ""
+      });
+      return;
+    }
 
-      return { ...t, checklist: newChecklist, status: newStatus, timerRunning, timerElapsed, timerStart };
-    }));
+    moveTask(taskId, targetId, newStatus);
   };
 
-  // Movimentação Global de Tarefas
+  const confirmDoneMove = () => {
+    if (!donePrompt.date || donePrompt.durationMin === "") {
+      setValidationError(["Data de Entrega e Tempo são obrigatórios."]);
+      return;
+    }
+    setValidationError(null);
+
+    setTasks(prev => {
+      const fromIndex = prev.findIndex(t => t.id.toString() === donePrompt.taskId.toString());
+      if (fromIndex === -1) return prev;
+
+      const taskToMove = { ...prev[fromIndex] };
+      taskToMove.dueDate = donePrompt.date;
+      taskToMove.timerElapsed = (parseInt(donePrompt.durationMin) || 0) * 60; // Salva o tempo real em segundos
+      taskToMove.durationMin = parseInt(donePrompt.durationMin) || 0; // Atualiza o campo estático
+      taskToMove.timerRunning = false;
+      taskToMove.timerStart = null;
+      taskToMove.status = 'done';
+
+      const newTasks = [...prev];
+      newTasks.splice(fromIndex, 1);
+
+      if (donePrompt.targetId) {
+        const toIndex = newTasks.findIndex(t => t.id.toString() === donePrompt.targetId.toString());
+        if (toIndex !== -1) {
+          newTasks.splice(toIndex, 0, taskToMove);
+        } else {
+          newTasks.push(taskToMove);
+        }
+      } else {
+        newTasks.push(taskToMove);
+      }
+      return newTasks;
+    });
+
+    setDonePrompt(null);
+  };
+
   const moveTask = (draggedId, targetId, newStatus) => {
     if (!draggedId) return;
     
@@ -322,7 +356,7 @@ function KanbanMain({ user, onLogout }) {
       let timerStart = taskToMove.timerStart;
       
       if (originalStatus !== newStatus) {
-        if ((newStatus === 'done' || newStatus === 'cancelled' || newStatus === 'formalize') && timerRunning) {
+        if ((newStatus === 'cancelled' || newStatus === 'formalize') && timerRunning) {
           timerRunning = false;
           timerElapsed += (Date.now() - timerStart) / 1000;
           timerStart = null;
@@ -356,9 +390,24 @@ function KanbanMain({ user, onLogout }) {
     });
   };
 
-  function updateTaskStatus(id, newStatus) {
-    moveTask(id, null, newStatus);
-  }
+  const toggleChecklistItem = (taskId, itemId) => {
+    setTasks(prev => {
+      const newTasks = prev.map(t => {
+        if (t.id !== taskId) return t;
+        const newChecklist = t.checklist.map(c => c.id === itemId ? { ...c, done: !c.done } : c);
+        return { ...t, checklist: newChecklist };
+      });
+
+      const updatedTask = newTasks.find(t => t.id === taskId);
+      const allDone = updatedTask.checklist.length > 0 && updatedTask.checklist.every(c => c.done);
+
+      if (allDone && updatedTask.status !== 'done' && updatedTask.status !== 'cancelled' && updatedTask.status !== 'formalize') {
+        setTimeout(() => handleRequestMove(taskId, null, 'done'), 0);
+      }
+
+      return newTasks;
+    });
+  };
 
   const handleDragStart = (e, taskId) => {
     e.dataTransfer.setData("taskId", taskId);
@@ -463,7 +512,7 @@ function KanbanMain({ user, onLogout }) {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
-                    moveTask(e.dataTransfer.getData("taskId"), null, col.id);
+                    handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id);
                   }}
                 >
                   {/* Header Coluna com Tooltip de Ajuda */}
@@ -527,7 +576,7 @@ function KanbanMain({ user, onLogout }) {
                             e.preventDefault();
                             e.stopPropagation();
                             setDragOverId(null);
-                            moveTask(e.dataTransfer.getData("taskId"), t.id, col.id);
+                            handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id);
                           }}
                         >
                           <div className="flex gap-2 items-start mb-2">
@@ -622,10 +671,10 @@ function KanbanMain({ user, onLogout }) {
                             )}
                             
                             {t.status !== "cancelled" ? (
-                              <SmallBtn onClick={() => updateTaskStatus(t.id, 'cancelled')} icon={<X size={12} />} label="Cancelar" tone="red" />
+                              <SmallBtn onClick={() => handleRequestMove(t.id, null, 'cancelled')} icon={<X size={12} />} label="Cancelar" tone="red" />
                             ) : (
                               <>
-                                <SmallBtn onClick={() => updateTaskStatus(t.id, 'backlog')} icon={<RotateCcw size={12} />} label="Restaurar" tone="green" />
+                                <SmallBtn onClick={() => handleRequestMove(t.id, null, 'backlog')} icon={<RotateCcw size={12} />} label="Restaurar" tone="green" />
                                 <SmallBtn onClick={() => setConfirmDelete(t.id)} icon={<Trash2 size={12} />} label="" tone="red" />
                               </>
                             )}
@@ -679,15 +728,67 @@ function KanbanMain({ user, onLogout }) {
         </div>
       )}
 
-      {/* Modal de Fechamento Semanal (Automação de E-mails) */}
+      {/* Pop-up Obrigatório: Conclusão da Demanda (Data e Tempo) */}
+      {donePrompt && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[90] fade-in">
+          <div className="w-full max-w-sm rounded-2xl bg-[#161821] border border-[#2a2d3d] shadow-2xl relative overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#2a2d3d] bg-[#1a1c24] flex items-center gap-3 text-green-500">
+              <CheckCircle2 size={20} />
+              <h3 className="font-semibold text-base text-white">Concluir Demanda</h3>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-4">
+              {validationError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3 py-2 rounded-lg flex items-center gap-2">
+                  <AlertTriangle size={14} /> {validationError[0]}
+                </div>
+              )}
+              <div>
+                <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">Data de Entrega *</label>
+                <input 
+                  type="date" 
+                  value={donePrompt.date} 
+                  onChange={e => { setDonePrompt({...donePrompt, date: e.target.value}); setValidationError(null); }} 
+                  className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-green-500 [color-scheme:dark]" 
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">Tempo Final de Execução (Minutos) *</label>
+                <input 
+                  type="number" 
+                  value={donePrompt.durationMin} 
+                  onChange={e => { setDonePrompt({...donePrompt, durationMin: e.target.value}); setValidationError(null); }} 
+                  className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-green-500" 
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-[#2a2d3d] bg-[#1a1c24] flex items-center justify-end gap-3">
+              <button onClick={() => { setDonePrompt(null); setValidationError(null); }} className="text-sm px-4 py-2 rounded-lg text-neutral-400 hover:text-white transition-colors">
+                Cancelar
+              </button>
+              <button onClick={confirmDoneMove} className="text-sm px-5 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white font-medium transition-colors">
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Fechamento Semanal (Automação de E-mails e Notion) */}
       {closureModal && (
         <ClosureModal 
           tasks={doneTasks}
           clients={clients}
+          responsibles={responsibles}
           onClose={() => setClosureModal(false)}
-          onFormalize={() => {
-            setTasks(prev => prev.map(t => t.status === 'done' ? { ...t, status: 'formalize' } : t));
-            setClosureModal(false);
+          onFormalize={(clientId) => {
+            if (clientId) {
+              setTasks(prev => prev.map(t => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t));
+            } else {
+              setTasks(prev => prev.map(t => t.status === 'done' ? { ...t, status: 'formalize' } : t));
+              setClosureModal(false);
+            }
           }}
         />
       )}
@@ -810,8 +911,10 @@ function CustomSelect({ label, value, onChange, options, hasError, required }) {
 }
 
 // --- Componente: Fechamento Semanal (Automação de E-mails) ---
-function ClosureModal({ tasks, clients, onClose, onFormalize }) {
+function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
   const [copiedId, setCopiedId] = useState(null);
+  const [copiedNotionId, setCopiedNotionId] = useState(null);
+  const [meetingData, setMeetingData] = useState({});
 
   const tasksByClient = useMemo(() => {
     return tasks.reduce((acc, task) => {
@@ -822,46 +925,83 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
     }, {});
   }, [tasks]);
 
-  const generateEmailText = (clientTasks, clientData) => {
-    const clientName = clientData ? clientData.name : 'Cliente';
-    let body = `Olá equipe ${clientName},\n\nAbaixo está o resumo das demandas executadas e finalizadas nesta semana:\n\n`;
+  const generateEmailText = (clientTasks, mData) => {
+    let body = `Prezados(as),\n\nEspero que estejam bem.\n\n`;
     
+    let dateStr = "";
+    if (mData?.date) {
+      const [y, m, d] = mData.date.split('-');
+      dateStr = `${d}/${m}`;
+    }
+
+    if (dateStr || mData?.link) {
+      body += `Segue o resumo da reunião de overview`;
+      if (dateStr) body += ` realizada em ${dateStr}`;
+      body += `, com os principais pontos discutidos e o status das demandas:\n\n`;
+      if (mData?.link) body += `🔗 Acesso à reunião gravada: ${mData.link}\n\n`;
+    } else {
+      body += `Segue o resumo semanal com os principais pontos e o status das demandas:\n\n`;
+    }
+
+    // Agrupar por responsável
+    const byResp = {};
     clientTasks.forEach(t => {
-      body += `• ${t.title}\n`;
-      if (t.description) body += `  ${t.description}\n`;
-      body += `\n`;
+      const rName = responsibles.find(r => r.id === t.responsibleId)?.name || 'Equipe';
+      if (!byResp[rName]) byResp[rName] = [];
+      byResp[rName].push(t);
     });
-    
-    body += `Qualquer dúvida, estamos à disposição.\n\n`;
+
+    Object.entries(byResp).forEach(([rName, tList]) => {
+      body += `Demandas – ${rName}\n`;
+      tList.forEach(t => {
+        body += `${t.title}\n`;
+        if (t.description) body += `${t.description}\n`;
+        body += `\n`;
+      });
+    });
+
+    body += `Em caso de dúvidas, sigo à disposição.\n\nAtenciosamente,`;
     return body;
   };
 
-  const generateEmailLink = (clientTasks, clientData) => {
+  const generateEmailLink = (clientTasks, clientData, mData) => {
     const emails = clientData?.emails || (clientData?.email ? [clientData.email] : []);
     const emailTo = emails.join(',');
     const subject = `Atualização Semanal de Demandas - ${clientData ? clientData.name : 'Cliente'}`;
-    const body = generateEmailText(clientTasks, clientData);
+    const body = generateEmailText(clientTasks, mData);
     
     return `https://mail.google.com/mail/?view=cm&fs=1&to=${emailTo}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  const handleCopyText = (clientTasks, clientData, clientId) => {
-    const text = generateEmailText(clientTasks, clientData);
+  const handleCopyText = (clientTasks, clientId, mData) => {
+    const text = generateEmailText(clientTasks, mData);
     navigator.clipboard.writeText(text);
     setCopiedId(clientId);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleCopyNotion = (clientTasks, clientId) => {
+    let text = "";
+    clientTasks.forEach(t => {
+      const timeMin = t.timerElapsed > 0 ? Math.round(t.timerElapsed / 60) : (t.durationMin || 0);
+      const dateStr = t.dueDate ? t.dueDate.split('-').reverse().join('/') : 'Sem data';
+      text += `• ${t.title}\n  Tempo: ${timeMin} min\n  Data: ${dateStr}\n\n`;
+    });
+    navigator.clipboard.writeText(text);
+    setCopiedNotionId(clientId);
+    setTimeout(() => setCopiedNotionId(null), 2000);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[80] fade-in">
-      <div className="w-full max-w-2xl rounded-2xl bg-[#161821] border border-[#2a2d3d] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+      <div className="w-full max-w-3xl rounded-2xl bg-[#161821] border border-[#2a2d3d] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
         
         <div className="px-6 py-5 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Mail size={20} /></div>
             <div>
               <h3 className="font-bold text-base text-white">Fechamento Semanal</h3>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Dispare os e-mails e formalize as demandas concluídas.</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">Dispare os e-mails e copie os relatórios pro Notion.</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-[#2a2d3d] transition-colors">
@@ -869,10 +1009,17 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto kp-scroll flex flex-col gap-4 flex-1">
+        <div className="p-6 overflow-y-auto kp-scroll flex flex-col gap-6 flex-1">
+          {Object.entries(tasksByClient).length === 0 && (
+             <div className="text-center text-sm text-neutral-500 py-8 border border-dashed border-[#2a2d3d] rounded-xl">
+               Nenhuma demanda pendente para formalizar.
+             </div>
+          )}
+
           {Object.entries(tasksByClient).map(([clientId, clientTasks]) => {
             const clientData = clients.find(c => c.id === clientId);
             const clientName = clientData ? clientData.name : 'Sem Cliente Atribuído';
+            const mData = meetingData[clientId] || { date: '', link: '' };
             
             return (
               <div key={clientId} className="bg-[#0f1015] border border-[#2a2d3d] rounded-xl p-4">
@@ -880,9 +1027,31 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
                   <h4 className="font-semibold text-sm text-white flex items-center gap-2">
                     <Building2 size={14} className="text-purple-400" /> {clientName}
                   </h4>
-                  <span className="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-md">{clientTasks.length} tarefas</span>
+                  <span className="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-md">{clientTasks.length} tarefas concluídas</span>
                 </div>
                 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 mt-2">
+                   <div>
+                      <label className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1 block">Data da Reunião (Opcional)</label>
+                      <input 
+                         type="date" 
+                         value={mData.date} 
+                         onChange={e => setMeetingData({...meetingData, [clientId]: {...mData, date: e.target.value}})} 
+                         className="w-full bg-[#161821] border border-[#2a2d3d] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-purple-500 [color-scheme:dark]" 
+                      />
+                   </div>
+                   <div>
+                      <label className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1 block">Link da Gravação (Opcional)</label>
+                      <input 
+                         type="text" 
+                         value={mData.link} 
+                         onChange={e => setMeetingData({...meetingData, [clientId]: {...mData, link: e.target.value}})} 
+                         className="w-full bg-[#161821] border border-[#2a2d3d] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-purple-500" 
+                         placeholder="Ex: meet.google.com/..." 
+                      />
+                   </div>
+                </div>
+
                 <div className="text-xs text-neutral-400 mb-4 max-h-32 overflow-y-auto pr-2 kp-scroll font-mono">
                   {clientTasks.map(t => (
                     <div key={t.id} className="mb-2">
@@ -892,22 +1061,39 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
                   ))}
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <a 
-                    href={generateEmailLink(clientTasks, clientData)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-lg text-xs font-medium transition-colors"
-                  >
-                    <Mail size={14} /> Abrir no Gmail
-                  </a>
-                  
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#2a2d3d] pt-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a 
+                      href={generateEmailLink(clientTasks, clientData, mData)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-lg text-xs font-medium transition-colors"
+                    >
+                      <Mail size={14} /> E-mail (Gmail)
+                    </a>
+                    
+                    <button 
+                      onClick={() => handleCopyText(clientTasks, clientId, mData)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20 border border-indigo-500/20 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      {copiedId === clientId ? <Check size={14} /> : <Copy size={14} />} 
+                      {copiedId === clientId ? "Copiado!" : "Copiar (E-mail)"}
+                    </button>
+
+                    <button 
+                      onClick={() => handleCopyNotion(clientTasks, clientId)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      {copiedNotionId === clientId ? <Check size={14} /> : <ClipboardList size={14} />} 
+                      {copiedNotionId === clientId ? "Copiado!" : "Copiar (Notion)"}
+                    </button>
+                  </div>
+
                   <button 
-                    onClick={() => handleCopyText(clientTasks, clientData, clientId)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20 border border-indigo-500/20 rounded-lg text-xs font-medium transition-colors"
+                    onClick={() => onFormalize(clientId)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-transparent border border-[#2a2d3d] text-neutral-400 hover:text-white hover:bg-[#2a2d3d] rounded-lg text-[11px] font-medium transition-colors"
                   >
-                    {copiedId === clientId ? <Check size={14} /> : <Copy size={14} />} 
-                    {copiedId === clientId ? "Copiado!" : "Copiar Texto"}
+                    <CheckCircle2 size={12} /> Formalizar
                   </button>
                 </div>
               </div>
@@ -918,7 +1104,7 @@ function ClosureModal({ tasks, clients, onClose, onFormalize }) {
         <div className="px-6 py-4 border-t border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
           <span className="text-xs text-neutral-400">Total: {tasks.length} tarefas prontas para formalização.</span>
           <button 
-            onClick={onFormalize} 
+            onClick={() => onFormalize(null)} 
             className="flex items-center gap-2 text-sm px-6 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-medium transition-colors"
           >
             <Check size={16} /> Mover todos para Formalizar
@@ -1300,7 +1486,7 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
   const updateForm = (patch) => { setModal(m => ({ ...m, form: { ...m.form, ...patch } })); if (validationError) setValidationError(null); };
   const addChecklistRow = () => { setModal(m => ({ ...m, form: { ...m.form, checklist: [...m.form.checklist, { id: nextId(), text: "", done: false }] } })); };
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 fade-in">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[85] fade-in">
       <div className="w-full max-w-lg rounded-2xl bg-[#161821] border border-[#2a2d3d] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
           <h3 className="font-bold text-base text-white">{modal.mode === "add" ? "Nova Tarefa" : "Editar Tarefa"}</h3>
@@ -1318,7 +1504,7 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
           <div className="grid grid-cols-2 gap-4">
             <CustomSelect label="Prioridade" value={modal.form.priority} onChange={(e) => updateForm({ priority: e.target.value })} options={<><option value="Baixa">Baixa</option><option value="Média">Média</option><option value="Alta">Alta</option></>} />
             <div>
-              <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">Duração (Min)</label>
+              <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">Duração Estimada (Min)</label>
               <input type="number" value={modal.form.durationMin} onChange={(e) => updateForm({ durationMin: e.target.value })} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-lg px-4 py-2.5 text-sm text-white outline-none focus:border-indigo-500" placeholder="Ex: 120" />
             </div>
           </div>
@@ -1360,7 +1546,7 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
         </div>
       </div>
       {validationError && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 fade-in z-[60] font-medium text-sm"><AlertTriangle size={16} />Preencha: {validationError.join(", ")}</div>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 fade-in z-[90] font-medium text-sm"><AlertTriangle size={16} />Preencha: {validationError.join(", ")}</div>
       )}
     </div>
   );
