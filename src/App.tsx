@@ -4,21 +4,20 @@ import {
   Users, Building2, BarChart3, LogOut, RotateCcw, 
   Filter, AlertTriangle, GripVertical, Download, 
   Play, Square, CheckCircle2, User, CheckSquare,
-  HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy, ClipboardList
+  HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy, ClipboardList, Cloud
 } from "lucide-react";
 
 // --- Configurações e Dados Iniciais ---
-
 const COLUMNS = [
-  { id: "backlog", name: "Backlog", dot: "bg-indigo-500", accent: "border-indigo-500", bg: "bg-indigo-500/10", btn: "bg-indigo-600 hover:bg-indigo-500", help: "Ideias, novas demandas e solicitações que ainda não foram priorizadas ou analisadas pela equipe." },
-  { id: "todo", name: "A Fazer", dot: "bg-amber-500", accent: "border-amber-500", bg: "bg-amber-500/10", btn: "bg-amber-500 hover:bg-amber-400 text-black", help: "Tarefas priorizadas, com responsável definido e prontas para serem iniciadas. A equipe sabe exatamente o que fazer a seguir." },
-  { id: "inprogress", name: "Em Andamento", dot: "bg-blue-500", accent: "border-blue-500", bg: "bg-blue-500/10", btn: "bg-blue-600 hover:bg-blue-500", help: "Tarefas que estão sendo executadas de forma ativa neste exato momento." },
-  { id: "paused", name: "Pausado", dot: "bg-orange-500", accent: "border-orange-500", bg: "bg-orange-500/10", btn: "bg-orange-600 hover:bg-orange-500", help: "Tarefas temporariamente interrompidas aguardando a resolução de algum bloqueio." },
-  { id: "waiting", name: "Aguardando Retorno", dot: "bg-pink-500", accent: "border-pink-500", bg: "bg-pink-500/10", btn: "bg-pink-600 hover:bg-pink-500", help: "Aguardando validação, arquivo ou resposta do Cliente ou do Time Rubeus." },
-  { id: "review", name: "Em Revisão", dot: "bg-purple-500", accent: "border-purple-500", bg: "bg-purple-500/10", btn: "bg-purple-600 hover:bg-purple-500", help: "Tarefas concluídas pela equipe técnica que aguardam aprovação ou validação do cliente/gestor." },
-  { id: "done", name: "Concluído", dot: "bg-green-500", accent: "border-green-500", bg: "bg-green-500/10", btn: "bg-green-600 hover:bg-green-500", help: "Tarefas totalmente finalizadas e validadas pela equipe." },
+  { id: "backlog", name: "Backlog", dot: "bg-indigo-500", accent: "border-indigo-500", bg: "bg-indigo-500/10", btn: "bg-indigo-600 hover:bg-indigo-500", help: "Ideias, novas demandas e solicitações que ainda não foram priorizadas ou analisadas pela equipa." },
+  { id: "todo", name: "A Fazer", dot: "bg-amber-500", accent: "border-amber-500", bg: "bg-amber-500/10", btn: "bg-amber-500 hover:bg-amber-400 text-black", help: "Tarefas priorizadas, com responsável definido e prontas para serem iniciadas." },
+  { id: "inprogress", name: "Em Andamento", dot: "bg-blue-500", accent: "border-blue-500", bg: "bg-blue-500/10", btn: "bg-blue-600 hover:bg-blue-500", help: "Tarefas que estão a ser executadas de forma ativa neste exato momento." },
+  { id: "paused", name: "Pausado", dot: "bg-orange-500", accent: "border-orange-500", bg: "bg-orange-500/10", btn: "bg-orange-600 hover:bg-orange-500", help: "Tarefas temporariamente interrompidas a aguardar a resolução de algum bloqueio." },
+  { id: "waiting", name: "Aguardando Retorno", dot: "bg-pink-500", accent: "border-pink-500", bg: "bg-pink-500/10", btn: "bg-pink-600 hover:bg-pink-500", help: "Aguardar validação, ficheiro ou resposta do Cliente ou da Equipa." },
+  { id: "review", name: "Em Revisão", dot: "bg-purple-500", accent: "border-purple-500", bg: "bg-purple-500/10", btn: "bg-purple-600 hover:bg-purple-500", help: "Tarefas concluídas que aguardam aprovação ou validação do cliente/gestor." },
+  { id: "done", name: "Concluído", dot: "bg-green-500", accent: "border-green-500", bg: "bg-green-500/10", btn: "bg-green-600 hover:bg-green-500", help: "Tarefas totalmente finalizadas e validadas." },
   { id: "formalize", name: "Formalizar", dot: "bg-teal-500", accent: "border-teal-500", bg: "bg-teal-500/10", btn: "bg-teal-600 hover:bg-teal-500", help: "Tarefas finalizadas que aguardam ou já tiveram o relatório enviado para o cliente." },
-  { id: "cancelled", name: "Cancelado", dot: "bg-red-500", accent: "border-red-500", bg: "bg-red-500/10", btn: "bg-red-600 hover:bg-red-500", help: "Tarefas que foram despriorizadas, descartadas ou que não serão mais executadas." },
+  { id: "cancelled", name: "Cancelado", dot: "bg-red-500", accent: "border-red-500", bg: "bg-red-500/10", btn: "bg-red-600 hover:bg-red-500", help: "Tarefas despriorizadas, descartadas ou que não serão mais executadas." },
 ];
 
 const PRIORITY_STYLE = {
@@ -51,7 +50,7 @@ const initialTasks = [
     durationMin: 120,
     dueDate: "",
     waitingFor: "",
-    checklist: [{ id: 1, text: "Validar com o time rubeus", done: false }],
+    checklist: [{ id: 1, text: "Validar com a equipa", done: false }],
     timerRunning: false,
     timerStart: null,
     timerElapsed: 0,
@@ -95,11 +94,11 @@ function LoginScreen({ onLogin }) {
         </div>
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-neutral-400 mb-1.5 block">Nome de Usuário</label>
+            <label className="text-xs text-neutral-400 mb-1.5 block">Nome de Utilizador</label>
             <input 
               autoFocus
               className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500 transition-colors" 
-              placeholder="Digite seu nome" 
+              placeholder="Digite o seu nome" 
               value={name} 
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && name && onLogin(name)}
@@ -110,7 +109,7 @@ function LoginScreen({ onLogin }) {
             className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 font-medium transition-colors" 
             onClick={() => onLogin(name)}
           >
-            Acessar Painel
+            Aceder ao Painel
           </button>
         </div>
       </div>
@@ -121,6 +120,16 @@ function LoginScreen({ onLogin }) {
 
 // --- Componente Principal ---
 export default function App() {
+  useEffect(() => {
+    // Injeta o script do Supabase dinamicamente para evitar problemas de compatibilidade com o bundler do ambiente
+    if (!document.getElementById('supabase-script')) {
+      const script = document.createElement('script');
+      script.id = 'supabase-script';
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      document.body.appendChild(script);
+    }
+  }, []);
+
   const [user, setUser] = useState(() => localStorage.getItem("kanban_user") || null);
 
   const handleLogin = (name) => {
@@ -162,6 +171,7 @@ function KanbanMain({ user, onLogout }) {
   const [modal, setModal] = useState(null); 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [validationError, setValidationError] = useState(null);
+  const [migrating, setMigrating] = useState(false);
   
   // Modais Secundários (Fluxos de Trabalho)
   const [waitingPrompt, setWaitingPrompt] = useState(null);
@@ -171,12 +181,77 @@ function KanbanMain({ user, onLogout }) {
   
   const [now, setNow] = useState(Date.now());
 
-  // Salvamento Automático
+  // Salvamento Automático Local (Mantido por segurança enquanto testamos a migração)
   useEffect(() => { localStorage.setItem("kanban_tasks", JSON.stringify(tasks)); }, [tasks]);
   useEffect(() => { localStorage.setItem("kanban_clients", JSON.stringify(clients)); }, [clients]);
   useEffect(() => { localStorage.setItem("kanban_responsibles", JSON.stringify(responsibles)); }, [responsibles]);
 
-  // Relógio do cronômetro
+  // Função para Migrar Dados para o Supabase
+  const migrateToSupabase = async () => {
+    if (!window.supabase) {
+      alert("A biblioteca do Supabase ainda está a carregar. Tente novamente em alguns segundos.");
+      return;
+    }
+
+    const confirmar = window.confirm("Deseja copiar todos os dados atuais do seu navegador para a nuvem do Supabase?");
+    if (!confirmar) return;
+
+    setMigrating(true);
+    try {
+      const supabaseUrl = 'https://wztalukwyzqbjcvhrunt.supabase.co'; 
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6dGFsdWt3eXpxYmpjdmhydW50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODM2NDQsImV4cCI6MjA5ODY1OTY0NH0.pvYYtBfK1HY73UbSadb8UiZARYvDFzxfB7qDwFLNUr8'; 
+      const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+      // 1. Migrar Clientes
+      if (clients.length > 0) {
+        // Formatar para garantir que os emails são um array JSON válido
+        const formattedClients = clients.map(c => ({
+          id: c.id.toString(),
+          name: c.name || '',
+          emails: Array.isArray(c.emails) ? c.emails : (c.email ? c.email.split(',').map(e=>e.trim()) : [])
+        }));
+        const { error } = await supabaseClient.from('clients').upsert(formattedClients);
+        if (error) throw new Error("Erro ao migrar clientes: " + error.message);
+      }
+
+      // 2. Migrar Responsáveis
+      if (responsibles.length > 0) {
+        const formattedResp = responsibles.map(r => ({ id: r.id.toString(), name: r.name || '' }));
+        const { error } = await supabaseClient.from('responsibles').upsert(formattedResp);
+        if (error) throw new Error("Erro ao migrar responsáveis: " + error.message);
+      }
+
+      // 3. Migrar Tarefas
+      if (tasks.length > 0) {
+        const formattedTasks = tasks.map(t => ({
+          id: t.id.toString(),
+          title: t.title || '',
+          description: t.description || '',
+          priority: t.priority || 'Média',
+          clientId: t.clientId || null,
+          responsibleId: t.responsibleId || null,
+          status: t.status || 'backlog',
+          durationMin: parseInt(t.durationMin) || 0,
+          dueDate: t.dueDate || null,
+          waitingFor: t.waitingFor || null,
+          checklist: t.checklist || [],
+          timerRunning: t.timerRunning || false,
+          timerStart: t.timerStart || 0,
+          timerElapsed: t.timerElapsed || 0
+        }));
+        const { error } = await supabaseClient.from('tasks').upsert(formattedTasks);
+        if (error) throw new Error("Erro ao migrar tarefas: " + error.message);
+      }
+
+      alert("🚀 Sucesso! Todas as suas listas e tarefas foram enviadas para o Supabase.");
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    }
+    setMigrating(false);
+  };
+
+  // Relógio do cronómetro
   useEffect(() => {
     const anyRunning = tasks.some((t) => t.timerRunning);
     if (!anyRunning) return;
@@ -296,14 +371,13 @@ function KanbanMain({ user, onLogout }) {
     if (!task) return;
 
     if (newStatus === 'done' && task.status !== 'done') {
-      // Pega a data de hoje garantindo o fuso horário local (Brasil)
+      // Pega a data de hoje garantindo o fuso horário local
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
       const localDateStr = `${year}-${month}-${day}`;
 
-      // Abre o Modal Obrigatório de Conclusão em vez de mover direto
       setDonePrompt({
         taskId,
         targetId,
@@ -329,8 +403,8 @@ function KanbanMain({ user, onLogout }) {
 
       const taskToMove = { ...prev[fromIndex] };
       taskToMove.dueDate = donePrompt.date;
-      taskToMove.timerElapsed = (parseInt(donePrompt.durationMin) || 0) * 60; // Salva o tempo real em segundos
-      taskToMove.durationMin = parseInt(donePrompt.durationMin) || 0; // Atualiza o campo estático
+      taskToMove.timerElapsed = (parseInt(donePrompt.durationMin) || 0) * 60;
+      taskToMove.durationMin = parseInt(donePrompt.durationMin) || 0;
       taskToMove.timerRunning = false;
       taskToMove.timerStart = null;
       taskToMove.status = 'done';
@@ -374,9 +448,8 @@ function KanbanMain({ user, onLogout }) {
           timerStart = null;
         }
         
-        // Abre o pop-up de "Aguardando Quem" toda vez que entra na etapa
         if (newStatus === 'waiting') {
-          taskToMove.waitingFor = ''; // Limpa para forçar a escolha
+          taskToMove.waitingFor = ''; 
           setTimeout(() => setWaitingPrompt(taskToMove.id), 10);
         }
       }
@@ -461,8 +534,17 @@ function KanbanMain({ user, onLogout }) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {/* NOVO: Botão de Migração (Ficará invisível depois que formos para a Nuvem de vez) */}
+          <HeaderBtn 
+            icon={<Cloud size={14} className={migrating ? "animate-pulse" : ""} />} 
+            label={migrating ? "A Migrar..." : "Migrar para a Nuvem"} 
+            onClick={migrateToSupabase} 
+            color="indigo" 
+          />
+          <div className="w-px h-6 bg-[#2a2d3d] mx-1"></div>
+          
           <HeaderBtn icon={<LayoutDashboard size={14} />} label="Quadro Inicial" active={activeTab === 'board'} onClick={() => setActiveTab('board')} color="indigo" />
-          <HeaderBtn icon={<Clock size={14} />} label="Cronômetro" active={activeTab === 'timer'} onClick={() => setActiveTab('timer')} color="amber" />
+          <HeaderBtn icon={<Clock size={14} />} label="Cronómetro" active={activeTab === 'timer'} onClick={() => setActiveTab('timer')} color="amber" />
           <HeaderBtn icon={<Users size={14} />} label="Responsáveis" active={activeTab === 'responsibles'} onClick={() => setActiveTab('responsibles')} color="indigo" />
           <HeaderBtn icon={<Building2 size={14} />} label="Clientes" active={activeTab === 'clients'} onClick={() => setActiveTab('clients')} color="purple" />
           <HeaderBtn icon={<BarChart3 size={14} />} label="Relatórios" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} color="blue" />
@@ -726,7 +808,7 @@ function KanbanMain({ user, onLogout }) {
               <h3 className="font-semibold text-base">Aguardando Retorno</h3>
             </div>
             <p className="text-sm text-neutral-400 mb-6 leading-relaxed">
-              O card foi movido para <b>Aguardando Retorno</b>. De quem você está aguardando uma resposta ou ação?
+              O card foi movido para <b>Aguardando Retorno</b>. De quem está a aguardar uma resposta ou ação?
             </p>
             <div className="flex items-center gap-3">
               <button 
@@ -740,12 +822,12 @@ function KanbanMain({ user, onLogout }) {
               </button>
               <button 
                 onClick={() => {
-                  setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Time Rubeus' } : t));
+                  setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Equipa Interna' } : t));
                   setWaitingPrompt(null);
                 }}
                 className="flex-1 py-2.5 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-medium transition-colors text-sm"
               >
-                Time Rubeus
+                Equipa Interna
               </button>
             </div>
           </div>
@@ -950,7 +1032,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
   }, [tasks]);
 
   const generateEmailText = (clientTasks, mData) => {
-    let body = `Prezados(as),\n\nEspero que estejam bem.\n\n`;
+    let body = `Prezados(as),\n\nEspero que se encontrem bem.\n\n`;
     
     let dateStr = "";
     if (mData?.date) {
@@ -960,11 +1042,11 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
 
     if (dateStr || mData?.link) {
       body += `Segue o resumo da reunião de overview`;
-      if (dateStr) body += ` realizada em ${dateStr}`;
-      body += `, com os principais pontos discutidos e o status das demandas:\n\n`;
+      if (dateStr) body += ` realizada a ${dateStr}`;
+      body += `, com os principais pontos discutidos e o estado das demandas:\n\n`;
       if (mData?.link) body += `🔗 Acesso à reunião gravada: ${mData.link}\n\n`;
     } else {
-      body += `Segue o resumo semanal com os principais pontos e o status das demandas:\n\n`;
+      body += `Segue o resumo semanal com os principais pontos e o estado das demandas:\n\n`;
     }
 
     clientTasks.forEach(t => {
@@ -973,7 +1055,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
       body += `\n`;
     });
 
-    body += `Em caso de dúvidas, sigo à disposição.\n\nAtenciosamente,`;
+    body += `Em caso de dúvidas, continuo à disposição.\n\nCom os melhores cumprimentos,`;
     return body;
   };
 
@@ -1014,7 +1096,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
             <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Mail size={20} /></div>
             <div>
               <h3 className="font-bold text-base text-white">Fechamento Semanal</h3>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Dispare os e-mails e copie os relatórios pro Notion.</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">Dispare os e-mails e copie os relatórios para o Notion.</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-[#2a2d3d] transition-colors">
@@ -1137,14 +1219,14 @@ function TimerPanel({ tasks, now, getElapsed, onToggleTimer }) {
     <div className="p-6 border-b border-[#2a2d3d] bg-[#1a1c24] fade-in shadow-inner">
       <div className="flex items-center gap-2 mb-2 text-amber-500">
         <Clock size={20} />
-        <h2 className="text-lg font-semibold">Cronômetro</h2>
+        <h2 className="text-lg font-semibold">Cronómetro</h2>
       </div>
-      <p className="text-xs text-neutral-400 mb-6">Selecione uma tarefa para registrar tempo de execução.</p>
+      <p className="text-xs text-neutral-400 mb-6">Selecione uma tarefa para registar tempo de execução.</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {activeTasks.length === 0 && (
           <div className="col-span-full py-8 text-center text-sm text-neutral-500 border border-dashed border-[#2a2d3d] rounded-xl">
-            Nenhuma tarefa com tempo registrado. Inicie o timer em algum card no quadro.
+            Nenhuma tarefa com tempo registado. Inicie o temporizador nalgum cartão no quadro.
           </div>
         )}
         {activeTasks.map(t => {
@@ -1278,7 +1360,7 @@ function ClientModal({ modal, setModal, setClients }) {
           </div>
           
           <div>
-            <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">E-mails (Contatos do Cliente)</label>
+            <label className="text-[11px] text-neutral-400 mb-1.5 block uppercase font-medium">E-mails (Contactos do Cliente)</label>
             <div className="flex items-center gap-2 mb-3">
               <input 
                 value={newEmail} 
@@ -1336,7 +1418,6 @@ function ClientsPanel({ clients, setClients, tasks, setTasks }) {
   const openAdd = () => setClientModal({ mode: 'add', form: { name: '', emails: [] } });
   
   const openEdit = (client) => {
-    // Normalização para lidar com possíveis dados antigos salvos no LocalStorage (strings em vez de array)
     const emailsArray = client.emails ? client.emails : (client.email ? client.email.split(',').map(e => e.trim()) : []);
     setClientModal({ mode: 'edit', form: { ...client, emails: emailsArray } });
   };
@@ -1379,7 +1460,7 @@ function ClientsPanel({ clients, setClients, tasks, setTasks }) {
                 <div>
                   <div className="text-sm font-semibold text-neutral-200">{c.name}</div>
                   <div className="text-[11px] text-neutral-500 mt-0.5">
-                    {emailsArray.length === 0 ? "Sem e-mails cadastrados" : `${emailsArray.length} e-mail(s) cadastrado(s)`}
+                    {emailsArray.length === 0 ? "Sem e-mails registados" : `${emailsArray.length} e-mail(s) registado(s)`}
                   </div>
                 </div>
                 <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-md ml-2">{count} tarefas</span>
@@ -1534,7 +1615,7 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
           </div>
           {modal.form.status === 'waiting' && (
             <div className="animate-fade-in">
-              <CustomSelect label="Aguardando Retorno De" required hasError={validationError?.includes("Aguardando Retorno")} value={modal.form.waitingFor || ""} onChange={(e) => updateForm({ waitingFor: e.target.value })} options={<><option value="">Selecione a pendência...</option><option value="Cliente">Cliente</option><option value="Time Rubeus">Time Rubeus</option></>} />
+              <CustomSelect label="Aguardando Retorno De" required hasError={validationError?.includes("Aguardando Retorno")} value={modal.form.waitingFor || ""} onChange={(e) => updateForm({ waitingFor: e.target.value })} options={<><option value="">Selecione a pendência...</option><option value="Cliente">Cliente</option><option value="Equipa Interna">Equipa Interna</option></>} />
             </div>
           )}
           <div>
