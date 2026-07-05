@@ -320,6 +320,19 @@ function KanbanMain({ user, onLogout }) {
     return t.timerElapsed || 0;
   };
 
+  const [dismissedLimits, setDismissedLimits] = useState(new Set());
+
+  const clientsNearLimit = useMemo(() => {
+    return clients.filter(c => {
+      if (!c.contractedHours) return false;
+      const cTasks = tasks.filter(t => t.clientId === c.id);
+      const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
+      return (c.contractedHours - hours) <= 5;
+    });
+  }, [clients, tasks, now]);
+
+  const pendingLimitAlerts = clientsNearLimit.filter(c => !dismissedLimits.has(c.id));
+
   const canEditTask = (taskRespId) => taskRespId === user.id;
 
   const visibleTasks = user.isAdmin ? tasks : tasks.filter(t => t.responsibleId === user.id);
@@ -649,7 +662,23 @@ function KanbanMain({ user, onLogout }) {
           <HeaderBtn icon={<LayoutDashboard size={14} />} label="Quadro Inicial" active={activeTab === 'board'} onClick={() => setActiveTab('board')} color="indigo" />
           <HeaderBtn icon={<Clock size={14} />} label="Cronómetro" active={activeTab === 'timer'} onClick={() => setActiveTab('timer')} color="amber" />
           <HeaderBtn icon={<Users size={14} />} label="Responsáveis" active={activeTab === 'responsibles'} onClick={() => setActiveTab('responsibles')} color="indigo" />
-          <HeaderBtn icon={<Building2 size={14} />} label="Clientes" active={activeTab === 'clients'} onClick={() => setActiveTab('clients')} color="purple" />
+          <HeaderBtn 
+            icon={
+              <div className="relative flex items-center justify-center">
+                <Building2 size={14} />
+                {clientsNearLimit.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                  </span>
+                )}
+              </div>
+            } 
+            label="Clientes" 
+            active={activeTab === 'clients'} 
+            onClick={() => setActiveTab('clients')} 
+            color="purple" 
+          />
           <HeaderBtn icon={<BarChart3 size={14} />} label="Relatórios" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} color="blue" />
           <div className="w-px h-6 bg-[#2a2d3d] mx-1"></div>
           <HeaderBtn icon={<LogOut size={14} />} label="Sair" onClick={onLogout} />
@@ -1040,6 +1069,51 @@ function KanbanMain({ user, onLogout }) {
                 className="text-sm px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors"
               >
                 Apagar Card
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NOVO: Pop-up Alerta de Banco de Horas */}
+      {pendingLimitAlerts.length > 0 && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-[#161821] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#2a2d3d] bg-[#1a1c24] flex items-center gap-3">
+              <div className="p-2 bg-red-500/10 rounded-lg text-red-400"><AlertTriangle size={20} /></div>
+              <h3 className="font-bold text-base text-white">Aviso: Banco de Horas</h3>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <p className="text-sm text-neutral-300">
+                Os seguintes clientes atingiram ou estão prestes a estourar o limite de horas contratadas:
+              </p>
+              <div className="flex flex-col gap-2 max-h-40 overflow-y-auto kp-scroll pr-2">
+                {pendingLimitAlerts.map(c => {
+                  const cTasks = tasks.filter(t => t.clientId === c.id);
+                  const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
+                  const remaining = c.contractedHours - hours;
+                  return (
+                    <div key={c.id} className="flex justify-between items-center bg-[#0f1015] border border-[#2a2d3d] p-3 rounded-lg">
+                      <span className="text-sm font-semibold text-white">{c.name}</span>
+                      <span className={`text-xs font-bold ${remaining < 0 ? 'text-red-500' : 'text-amber-400'}`}>
+                        Restam: {remaining.toFixed(1)}h
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-neutral-500 mt-2">
+                Aceda à aba "Clientes" para formalizar o aviso por e-mail e obter a permissão de continuar a atuar.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-[#2a2d3d] bg-[#1a1c24] flex justify-end">
+              <button 
+                onClick={() => {
+                  setDismissedLimits(prev => new Set([...prev, ...pendingLimitAlerts.map(c => c.id)]));
+                }} 
+                className="text-sm px-6 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors"
+              >
+                Estou Ciente
               </button>
             </div>
           </div>
