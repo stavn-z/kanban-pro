@@ -5,7 +5,7 @@ import {
   Filter, AlertTriangle, GripVertical, Download, 
   Play, Square, CheckCircle2, User, CheckSquare,
   HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy, ClipboardList, Cloud, Lock,
-  Eye, EyeOff
+  Eye, EyeOff, ExternalLink, Settings, MonitorPlay
 } from "lucide-react";
 
 // ==========================================
@@ -91,9 +91,9 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div className="min-h-screen bg-[#0f1015] flex items-center justify-center p-4">
-      <div className="bg-[#161821] p-8 rounded-3xl border border-[#2a2d3d] w-full max-w-sm shadow-2xl">
+      <div className="bg-[#161821] p-8 rounded-3xl border border-[#2a2d3d] w-full max-w-sm shadow-2xl animate-modal-pop">
         <div className="flex flex-col items-center justify-center gap-4 mb-8">
-          <div className="w-24 h-24 rounded-3xl bg-black flex items-center justify-center border border-white/5 overflow-hidden shadow-2xl">
+          <div className="w-24 h-24 rounded-[22px] bg-black flex items-center justify-center border border-white/5 overflow-hidden shadow-2xl">
             <img src="/apple-icon.png" alt="Lumina Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-b from-white to-neutral-400 bg-clip-text text-transparent">Lumina</h1>
@@ -102,7 +102,7 @@ function LoginScreen({ onLogin }) {
 
         {error && (
           <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3 py-2.5 rounded-lg flex items-center gap-2">
-            <AlertTriangle size={14} className="shrink-0" /> {error}
+            <AlertTriangle size={14} className="shrink-0" /> {String(error)}
           </div>
         )}
 
@@ -195,7 +195,7 @@ export default function App() {
   if (!supabaseReady) {
     return (
       <div className="min-h-screen bg-[#0f1015] flex flex-col items-center justify-center p-4 text-center">
-        <div className="w-20 h-20 rounded-2xl bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 animate-pulse shadow-2xl">
+        <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 animate-pulse shadow-2xl animate-modal-pop">
           <img src="/apple-icon.png" alt="Lumina" className="w-full h-full object-cover" />
         </div>
         <div className="text-neutral-400 font-medium animate-pulse text-sm">A conectar ao Lumina Cloud...</div>
@@ -237,7 +237,7 @@ function KanbanMain({ user, onLogout }) {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Busca dados da Nuvem com "Pente Fino" anti-crash (Garante que nunca haja nulls)
+  // Busca dados da Nuvem
   useEffect(() => {
     async function fetchCloudData() {
       try {
@@ -305,6 +305,7 @@ function KanbanMain({ user, onLogout }) {
   }, [clients, isCloudSynced]);
 
   const [activeTab, setActiveTab] = useState('board'); 
+  const [isClosingModal, setIsClosingModal] = useState(false);
   const [filterClient, setFilterClient] = useState("all");
   const [filterResp, setFilterResp] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -319,6 +320,14 @@ function KanbanMain({ user, onLogout }) {
   const [dragOverId, setDragOverId] = useState(null);
   
   const [now, setNow] = useState(Date.now());
+
+  const handleCloseTab = () => {
+    setIsClosingModal(true);
+    setTimeout(() => {
+      setActiveTab('board');
+      setIsClosingModal(false);
+    }, 250);
+  };
 
   useEffect(() => {
     const anyRunning = tasks.some((t) => t.timerRunning);
@@ -633,7 +642,7 @@ function KanbanMain({ user, onLogout }) {
   if (isLoading) {
     return (
       <div className="h-screen w-full bg-[#0f1015] flex flex-col items-center justify-center p-4 text-center">
-        <div className="w-20 h-20 rounded-2xl bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 animate-pulse shadow-2xl">
+        <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 shadow-2xl animate-modal-pop">
           <img src="/apple-icon.png" alt="Lumina" className="w-full h-full object-cover" />
         </div>
         <div className="text-neutral-400 font-medium animate-pulse text-sm">Sincronizando Lumina...</div>
@@ -649,46 +658,59 @@ function KanbanMain({ user, onLogout }) {
         .kp-scroll::-webkit-scrollbar-thumb:hover { background: #3f4359; }
         .kp-scroll::-webkit-scrollbar-track { background: transparent; }
         
-        /* Oculta a barra de scroll nativa nos menus horizontais de telemóvel */
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        .fade-in { animation: fadeIn 0.2s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.2s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .fade-out { animation: fadeOut 0.25s ease-out forwards; }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        .animate-modal-pop { animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        
+        .animate-modal-out { animation: modalPopOut 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes modalPopOut { 0% { opacity: 1; transform: scale(1) translateY(0); } 100% { opacity: 0; transform: scale(0.97) translateY(10px); } }
         
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
       `}</style>
 
-      {/* HEADER LUMINA - 100% Responsivo */}
+      {/* HEADER LUMINA */}
       <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between p-4 md:px-6 md:py-4 border-b border-[#2a2d3d] bg-[#161821] z-20 relative gap-4 md:gap-0">
         
-        {/* Bloco Logo e Utilizador */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shrink-0 overflow-hidden border border-white/10 shadow-lg">
-            <img src="/apple-icon.png" alt="L" className="w-full h-full object-cover p-0.5" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-xl bg-gradient-to-r from-white to-neutral-500 bg-clip-text text-transparent leading-none">Lumina</span>
-              {isCloudSynced && (
-                <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                  <Cloud size={10} /> Sinc
-                </span>
-              )}
+        <div className="flex items-center justify-between w-full md:w-auto">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-10 h-10 rounded-[10px] bg-black flex items-center justify-center shrink-0 overflow-hidden border border-white/10 shadow-lg">
+              <img src="/apple-icon.png" alt="L" className="w-full h-full object-cover" />
             </div>
-            <span className="text-[11px] text-indigo-400 font-medium truncate max-w-[200px] mt-0.5">
-              {user.name} {user.isAdmin && <span className="opacity-70">(Admin)</span>}
-            </span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-xl bg-gradient-to-r from-white to-neutral-500 bg-clip-text text-transparent leading-none">Lumina</span>
+                {isCloudSynced && (
+                  <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                    <Cloud size={10} /> Sinc
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-indigo-400 font-medium truncate max-w-[200px] mt-0.5">
+                {user.name} {user.isAdmin && <span className="opacity-70">(Admin)</span>}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 md:hidden">
+            <button onClick={onLogout} className="p-2 rounded-xl text-neutral-400 hover:text-white bg-[#0f1015] border border-[#2a2d3d]"><LogOut size={16}/></button>
           </div>
         </div>
 
-        {/* Menu Tátil de Navegação Oculto no Scroll (Mobile) */}
+        {/* Menu Tátil de Navegação */}
         <div className="w-full md:w-auto overflow-x-auto hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
           <div className="flex items-center gap-2 pb-1 min-w-max">
-            <HeaderBtn icon={<LayoutDashboard size={14} />} label="Board" active={activeTab === 'board'} onClick={() => setActiveTab('board')} color="indigo" />
-            <HeaderBtn icon={<Clock size={14} />} label="Timer" active={activeTab === 'timer'} onClick={() => setActiveTab('timer')} color="amber" />
-            <HeaderBtn icon={<Users size={14} />} label="Contas" active={activeTab === 'responsibles'} onClick={() => setActiveTab('responsibles')} color="indigo" />
+            <HeaderBtn icon={<LayoutDashboard size={14} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} color="indigo" />
+            <HeaderBtn icon={<Clock size={14} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} color="amber" />
+            <HeaderBtn icon={<Users size={14} />} label="Contas" active={activeTab === 'responsibles' && !isClosingModal} onClick={() => setActiveTab('responsibles')} color="indigo" />
             <HeaderBtn 
               icon={
                 <div className="relative flex items-center justify-center">
@@ -701,24 +723,27 @@ function KanbanMain({ user, onLogout }) {
                   )}
                 </div>
               } 
-              label="Clientes" active={activeTab === 'clients'} onClick={() => setActiveTab('clients')} color="purple" 
+              label="Clientes" active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} color="purple" 
             />
-            <HeaderBtn icon={<BarChart3 size={14} />} label="Analytics" active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} color="blue" />
+            <HeaderBtn icon={<BarChart3 size={14} />} label="Analytics" active={activeTab === 'reports' && !isClosingModal} onClick={() => setActiveTab('reports')} color="blue" />
+            
             <div className="w-px h-6 bg-[#2a2d3d] mx-1 shrink-0 hidden md:block"></div>
-            <HeaderBtn icon={<LogOut size={14} />} label="Sair" onClick={onLogout} />
+            <button onClick={onLogout} className="hidden md:flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-[#2a2d3d] transition-all"><LogOut size={16}/></button>
           </div>
         </div>
       </div>
 
-      {/* Área Dinâmica */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col">
-        {activeTab === 'timer' && <TimerPanel tasks={filteredTasks} now={now} getElapsed={getElapsed} onToggleTimer={toggleTimer} user={user} />}
-        {activeTab === 'responsibles' && <ResponsiblesPanel responsibles={responsibles} setResponsibles={setResponsibles} tasks={tasks} setTasks={setTasks} user={user} />}
-        {activeTab === 'clients' && <ClientsPanel clients={clients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} now={now} />}
-        {activeTab === 'reports' && <ReportsPanel tasks={filteredTasks} clients={clients} responsibles={responsibles} now={now} getElapsed={getElapsed} />}
+      {/* MODAIS Overlay */}
+      {activeTab === 'timer' && <OverlayModal title="Cronómetro" icon={<Clock size={20} className="text-amber-500"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TimerPanelContent tasks={filteredTasks} now={now} getElapsed={getElapsed} onToggleTimer={toggleTimer} user={user} /></OverlayModal>}
+      {activeTab === 'responsibles' && <OverlayModal title="Responsáveis (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} setResponsibles={setResponsibles} tasks={tasks} setTasks={setTasks} user={user} /></OverlayModal>}
+      {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={clients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} now={now} /></OverlayModal>}
+      {activeTab === 'reports' && <AnalyticsModal isClosing={isClosingModal} onClose={handleCloseTab} tasks={filteredTasks} clients={clients} responsibles={responsibles} now={now} getElapsed={getElapsed} />}
 
+      {/* ÁREA PRINCIPAL DO BOARD */}
+      <div className={`flex-1 flex flex-col min-h-0`}>
+        
         {/* Estatísticas */}
-        <div className={`shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-2 ${activeTab !== 'board' ? 'hidden' : ''}`}>
+        <div className={`shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-2`}>
           <div className="w-full rounded-2xl bg-[#161821] border border-[#2a2d3d] px-4 md:px-5 py-4 shadow-sm">
             <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-neutral-400 mb-2.5">
               <span className="font-semibold">Sua Performance Geral</span>
@@ -731,7 +756,7 @@ function KanbanMain({ user, onLogout }) {
         </div>
 
         {/* Filtros Responsivos */}
-        <div className={`shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 md:px-6 pb-4 ${activeTab !== 'board' ? 'hidden' : ''}`}>
+        <div className={`shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 md:px-6 pb-4`}>
           <div className="w-full md:w-auto overflow-x-auto hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
             <div className="flex items-center gap-2 pb-1 min-w-max">
               <Filter size={16} className="text-neutral-500 shrink-0 hidden sm:block" />
@@ -747,8 +772,8 @@ function KanbanMain({ user, onLogout }) {
           )}
         </div>
 
-        {/* Board - Layout Horizontal Preservado */}
-        <div className={`flex-1 overflow-x-auto px-4 md:px-6 pb-6 kp-scroll ${activeTab !== 'board' ? 'hidden' : ''}`}>
+        {/* Quadro Kanban */}
+        <div className={`flex-1 overflow-x-auto px-4 md:px-6 pb-6 kp-scroll`}>
           <div className="flex gap-4 items-start h-full min-w-max pb-2">
             {COLUMNS.map((col) => {
               const colTasks = filteredTasks.filter((t) => t.status === col.id);
@@ -865,7 +890,7 @@ function KanbanMain({ user, onLogout }) {
       {/* Pop-up: Aguardando Retorno */}
       {waitingPrompt && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-[#161821] border border-[#2a2d3d] p-6 shadow-2xl relative">
+          <div className="w-full max-w-sm rounded-3xl bg-[#161821] border border-[#2a2d3d] p-6 shadow-2xl relative animate-modal-pop">
             <button onClick={() => setWaitingPrompt(null)} className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors p-2"><X size={20} /></button>
             <div className="flex items-center gap-3 mb-4 text-pink-500">
               <div className="p-3 bg-pink-500/10 rounded-2xl shadow-inner"><HelpCircle size={24} /></div>
@@ -883,7 +908,7 @@ function KanbanMain({ user, onLogout }) {
       {/* Pop-up: Conclusão de Demanda */}
       {donePrompt && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[90] fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-[#161821] border border-[#2a2d3d] shadow-2xl relative overflow-hidden">
+          <div className="w-full max-w-sm rounded-3xl bg-[#161821] border border-[#2a2d3d] shadow-2xl relative overflow-hidden animate-modal-pop">
             <div className="px-6 py-5 border-b border-[#2a2d3d] bg-[#1a1c24] flex items-center gap-3 text-green-500">
               <CheckCircle2 size={24} />
               <h3 className="font-bold text-lg text-white">Finalizar Lumina</h3>
@@ -910,7 +935,7 @@ function KanbanMain({ user, onLogout }) {
       {/* Alerta de Banco de Horas */}
       {pendingLimitAlerts.length > 0 && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-[#161821] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden">
+          <div className="w-full max-w-md rounded-3xl bg-[#161821] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
             <div className="px-6 py-5 border-b border-[#2a2d3d] bg-[#1a1c24] flex items-center gap-3">
               <div className="p-3 bg-red-500/10 rounded-2xl shadow-inner text-red-400"><AlertTriangle size={24} /></div>
               <h3 className="font-bold text-lg text-white">Alerta: Banco de Horas</h3>
@@ -939,7 +964,7 @@ function KanbanMain({ user, onLogout }) {
         </div>
       )}
 
-      {/* Modais e Fechamento */}
+      {/* Modais de Popups Principais */}
       {closureModal && <ClosureModal tasks={doneTasks} clients={clients} responsibles={responsibles} onClose={() => setClosureModal(false)} onFormalize={(clientId) => { if (clientId) { setTasks(prev => prev.map(t => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t)); } else { setTasks(prev => prev.map(t => t.status === 'done' ? { ...t, status: 'formalize' } : t)); setClosureModal(false); } }} />}
       {modal && <TaskModal modal={modal} setModal={setModal} clients={clients} responsibles={responsibles} closeModal={closeModal} saveModal={saveModal} validationError={validationError} setValidationError={setValidationError} />}
     </div>
@@ -947,6 +972,25 @@ function KanbanMain({ user, onLogout }) {
 }
 
 // --- Sub-Componentes UI Reutilizáveis ---
+
+function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }) {
+  return (
+    <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] ${isClosing ? 'fade-out' : 'fade-in'}`}>
+      <div className={`bg-[#161821] border border-[#2a2d3d] rounded-3xl shadow-2xl flex flex-col overflow-hidden w-full ${isClosing ? 'animate-modal-out' : 'animate-modal-pop'} ${fullWidth ? 'max-w-7xl h-[90vh]' : 'max-w-4xl max-h-[90vh]'}`}>
+        <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
+           <div className="flex items-center gap-3">
+             <div className="p-2 bg-indigo-500/10 rounded-xl hidden sm:block">{icon}</div>
+             <h2 className="text-lg font-bold text-white">{title}</h2>
+           </div>
+           <button onClick={onClose} className="p-2 rounded-xl text-neutral-500 hover:bg-[#2a2d3d] hover:text-white transition-colors shrink-0"><X size={20}/></button>
+        </div>
+        <div className="flex-1 overflow-y-auto kp-scroll p-4 sm:p-6 bg-[#0f1015]">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function HeaderBtn({ icon, label, active, onClick, color = "neutral" }) {
   const colors = {
@@ -1005,256 +1049,37 @@ function CustomSelect({ label, value, onChange, options, hasError, required }) {
   );
 }
 
-function generateLimitEmailLink(clientData, consumedHours) {
-  const emails = Array.isArray(clientData?.emails) ? clientData.emails : [];
-  const emailTo = emails.join(',');
-  const subject = `Aviso de Banco de Horas - ${clientData.name}`;
-  const remaining = (clientData.contractedHours || 0) - consumedHours;
-  
-  const body = `Prezados(as),\n\nInformamos que o banco de horas contratado (${clientData.contractedHours}h) está prestes a ser atingido. No momento, restam apenas ${remaining.toFixed(1)}h disponíveis.\n\nGostaríamos de saber se autorizam a continuidade das demandas (cientes de que as horas excedentes poderão ser cobradas) ou se devemos pausar as atividades até à renovação do banco.\n\nCom os melhores cumprimentos,`;
-  
-  return `https://mail.google.com/mail/?view=cm&fs=1&to=${emailTo}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
-function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
-  const [copiedId, setCopiedId] = useState(null);
-  const [copiedNotionId, setCopiedNotionId] = useState(null);
-  const [meetingData, setMeetingData] = useState({});
-
-  const tasksByClient = useMemo(() => {
-    return tasks.reduce((acc, task) => {
-      const cId = task.clientId || 'no_client';
-      if (!acc[cId]) acc[cId] = [];
-      acc[cId].push(task);
-      return acc;
-    }, {});
-  }, [tasks]);
-
-  const generateEmailText = (clientTasks, mData) => {
-    let body = `Prezados(as),\n\nEspero que se encontrem bem.\n\n`;
-    
-    let dateStr = "";
-    if (mData?.date) {
-      const [y, m, d] = mData.date.split('-');
-      dateStr = `${d}/${m}`;
-    }
-
-    if (dateStr || mData?.link) {
-      body += `Segue o resumo da reunião de overview`;
-      if (dateStr) body += ` realizada a ${dateStr}`;
-      body += `, com os principais pontos discutidos e o estado das demandas:\n\n`;
-      if (mData?.link) body += `🔗 Acesso à reunião gravada: ${mData.link}\n\n`;
-    } else {
-      body += `Segue o resumo semanal com os principais pontos e o estado das demandas:\n\n`;
-    }
-
-    clientTasks.forEach(t => {
-      body += `${t.title}\n`;
-      if (t.description) body += `${t.description}\n`;
-      body += `\n`;
-    });
-
-    body += `Em caso de dúvidas, continuo à disposição.\n\nCom os melhores cumprimentos,`;
-    return body;
-  };
-
-  const generateEmailLink = (clientTasks, clientData, mData) => {
-    const emails = Array.isArray(clientData?.emails) ? clientData.emails : [];
-    const emailTo = emails.join(',');
-    const subject = `Atualização Semanal de Demandas - ${clientData ? clientData.name : 'Cliente'}`;
-    const body = generateEmailText(clientTasks, mData);
-    
-    return `https://mail.google.com/mail/?view=cm&fs=1&to=${emailTo}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  };
-
-  const handleCopyText = (clientTasks, clientId, mData) => {
-    const text = generateEmailText(clientTasks, mData);
-    navigator.clipboard.writeText(text);
-    setCopiedId(clientId);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleCopyNotion = (clientTasks, clientId) => {
-    let text = "";
-    clientTasks.forEach(t => {
-      const timeMin = t.timerElapsed > 0 ? Math.round(t.timerElapsed / 60) : (t.durationMin || 0);
-      const dateStr = t.dueDate ? t.dueDate.split('-').reverse().join('/') : 'Sem data';
-      text += `• ${t.title}\n  Tempo: ${timeMin} min\n  Data: ${dateStr}\n\n`;
-    });
-    navigator.clipboard.writeText(text);
-    setCopiedNotionId(clientId);
-    setTimeout(() => setCopiedNotionId(null), 2000);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[80] fade-in">
-      <div className="w-full max-w-3xl rounded-3xl bg-[#161821] border border-[#2a2d3d] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-        
-        <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400 hidden sm:block"><Mail size={20} /></div>
-            <div>
-              <h3 className="font-bold text-base text-white">Fechamento Semanal</h3>
-              <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Dispare os e-mails e copie os relatórios para o Notion.</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 sm:p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-[#2a2d3d] transition-colors shrink-0">
-            <X size={20} />
-          </button>
-        </div>
-        
-        <div className="p-4 sm:p-6 overflow-y-auto kp-scroll flex flex-col gap-6 flex-1">
-          {Object.entries(tasksByClient).length === 0 && (
-             <div className="text-center text-sm text-neutral-500 py-8 border border-dashed border-[#2a2d3d] rounded-xl">
-               Nenhuma demanda pendente para formalizar.
-             </div>
-          )}
-
-          {Object.entries(tasksByClient).map(([clientId, clientTasks]) => {
-            const clientData = clients.find(c => c.id === clientId);
-            const clientName = clientData ? clientData.name : 'Sem Cliente Atribuído';
-            const mData = meetingData[clientId] || { date: '', link: '' };
-            
-            return (
-              <div key={clientId} className="bg-[#0f1015] border border-[#2a2d3d] rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3 border-b border-[#2a2d3d] pb-3">
-                  <h4 className="font-semibold text-sm text-white flex items-center gap-2">
-                    <Building2 size={14} className="text-purple-400" /> {clientName}
-                  </h4>
-                  <span className="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-md">{clientTasks.length} tarefas</span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 mt-2">
-                   <div>
-                      <label className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1 block">Data da Reunião (Opcional)</label>
-                      <input 
-                         type="date" 
-                         value={mData.date || ''} 
-                         onChange={e => setMeetingData({...meetingData, [clientId]: {...mData, date: e.target.value}})} 
-                         className="w-full bg-[#161821] border border-[#2a2d3d] rounded-lg px-3 py-3 sm:py-2 text-xs text-white outline-none focus:border-purple-500 [color-scheme:dark]" 
-                      />
-                   </div>
-                   <div>
-                      <label className="text-[10px] text-neutral-500 uppercase tracking-wider mb-1 block">Link da Gravação (Opcional)</label>
-                      <input 
-                         type="text" 
-                         value={mData.link || ''} 
-                         onChange={e => setMeetingData({...meetingData, [clientId]: {...mData, link: e.target.value}})} 
-                         className="w-full bg-[#161821] border border-[#2a2d3d] rounded-lg px-3 py-3 sm:py-2 text-xs text-white outline-none focus:border-purple-500" 
-                         placeholder="Ex: meet.google.com/..." 
-                      />
-                   </div>
-                </div>
-
-                <div className="text-xs text-neutral-400 mb-4 max-h-32 overflow-y-auto pr-2 kp-scroll font-mono">
-                  {clientTasks.map(t => (
-                    <div key={t.id} className="mb-2">
-                      <div className="text-neutral-200 font-medium">• {t.title}</div>
-                      {t.description && <div className="pl-3 opacity-70 truncate">{t.description}</div>}
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-[#2a2d3d] pt-4">
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                    <a 
-                      href={generateEmailLink(clientTasks, clientData, mData)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 px-3 py-3 sm:py-1.5 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-lg text-xs font-medium transition-colors"
-                    >
-                      <Mail size={14} /> E-mail
-                    </a>
-                    
-                    <button 
-                      onClick={() => handleCopyText(clientTasks, clientId, mData)}
-                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 px-3 py-3 sm:py-1.5 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20 border border-indigo-500/20 rounded-lg text-xs font-medium transition-colors"
-                    >
-                      {copiedId === clientId ? <Check size={14} /> : <Copy size={14} />} 
-                      {copiedId === clientId ? "Copiado!" : "Copiar (E-mail)"}
-                    </button>
-
-                    <button 
-                      onClick={() => handleCopyNotion(clientTasks, clientId)}
-                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-1.5 px-3 py-3 sm:py-1.5 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-xs font-medium transition-colors"
-                    >
-                      {copiedNotionId === clientId ? <Check size={14} /> : <ClipboardList size={14} />} 
-                      {copiedNotionId === clientId ? "Copiado!" : "Copiar (Notion)"}
-                    </button>
-                  </div>
-
-                  <button 
-                    onClick={() => onFormalize(clientId)}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-3 sm:py-1.5 bg-transparent border border-[#2a2d3d] text-neutral-400 hover:text-white hover:bg-[#2a2d3d] rounded-lg text-[11px] font-medium transition-colors"
-                  >
-                    <CheckCircle2 size={12} /> Formalizar
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        
-        <div className="px-5 sm:px-6 py-4 border-t border-[#2a2d3d] flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#1a1c24]">
-          <span className="text-xs text-neutral-400">Total: {tasks.length} tarefas prontas.</span>
-          <button 
-            onClick={() => onFormalize(null)} 
-            className="w-full sm:w-auto flex items-center justify-center gap-2 text-sm px-6 py-3 sm:py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium transition-colors"
-          >
-            <Check size={16} /> Formalizar Todos
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TimerPanel({ tasks, now, getElapsed, onToggleTimer, user }) {
+// --- Funções de Componentes Internos de Modais ---
+function TimerPanelContent({ tasks, now, getElapsed, onToggleTimer, user }) {
   const activeTasks = tasks.filter(t => (t.timerRunning || t.timerElapsed > 0) && t.responsibleId === user.id).sort((a,b) => b.timerRunning - a.timerRunning);
-  
   return (
-    <div className="p-4 md:p-6 border-b border-[#2a2d3d] bg-[#1a1c24] fade-in shadow-inner">
-      <div className="flex items-center gap-2 mb-2 text-amber-500">
-        <Clock size={20} />
-        <h2 className="text-lg font-semibold">Cronómetro</h2>
-      </div>
-      <p className="text-xs text-neutral-400 mb-6">Selecione uma tarefa sua para registar tempo de execução.</p>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="flex flex-col h-full fade-in">
+      <p className="text-xs text-neutral-400 mb-6 text-center">Inicie o cronômetro num card do painel para acompanhar o tempo em tempo real aqui.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {activeTasks.length === 0 && (
           <div className="col-span-full py-8 text-center text-sm text-neutral-500 border border-dashed border-[#2a2d3d] rounded-xl">
-            Nenhuma tarefa com tempo registado. Inicie o temporizador nalgum cartão no quadro.
+            Nenhuma tarefa sua com tempo registado no momento.
           </div>
         )}
         {activeTasks.map(t => {
           const isDoneOrCancelled = t.status === "done" || t.status === "cancelled" || t.status === "formalize";
           return (
-            <div key={t.id} className="bg-[#161821] border border-[#2a2d3d] rounded-xl p-5 flex flex-col items-center text-center relative overflow-hidden group hover:border-[#3f4359] transition-colors">
+            <div key={t.id} className="bg-[#161821] border border-[#2a2d3d] rounded-2xl p-5 flex flex-col items-center text-center relative overflow-hidden group hover:border-[#3f4359] transition-colors">
               {t.timerRunning && <div className="absolute top-0 left-0 w-full h-1 bg-amber-500 animate-pulse" />}
-              
-              <div className="text-[10px] px-2 py-0.5 rounded-full bg-[#0f1015] border border-[#2a2d3d] text-neutral-400 mb-3 truncate w-full">
+              <div className="text-[10px] font-bold uppercase px-3 py-1 rounded-full bg-[#0f1015] border border-[#2a2d3d] text-neutral-400 mb-3 truncate w-full">
                 {COLUMNS.find(c=>c.id === t.status)?.name}
               </div>
               <h3 className={`font-semibold text-sm mb-4 truncate w-full ${isDoneOrCancelled ? 'text-neutral-500 line-through' : 'text-neutral-200'}`} title={t.title}>{t.title}</h3>
-              
-              <div className={`text-4xl font-mono font-light mb-6 tracking-wider ${t.timerRunning ? 'text-amber-400' : 'text-white'}`}>
+              <div className={`text-4xl font-mono font-light mb-6 tracking-wider ${t.timerRunning ? 'text-amber-400 drop-shadow-md' : 'text-white'}`}>
                 {formatTime(getElapsed(t))}
               </div>
-              
               {!isDoneOrCancelled ? (
-                <button
-                  onClick={() => onToggleTimer(t.id)}
-                  className={`w-full flex items-center justify-center gap-2 py-3 md:py-2.5 rounded-lg font-semibold text-xs transition-colors ${
-                    t.timerRunning 
-                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20' 
-                    : 'bg-[#2a2d3d] text-neutral-300 hover:bg-[#3f4359]'
-                  }`}
-                >
-                  {t.timerRunning ? <><Square size={14}/> Parar</> : <><Play size={14}/> Iniciar</>}
+                <button onClick={() => onToggleTimer(t.id)} className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold uppercase tracking-wider text-[11px] transition-colors ${t.timerRunning ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 shadow-lg shadow-amber-500/10' : 'bg-[#2a2d3d] text-neutral-300 hover:bg-[#3f4359]'}`}>
+                  {t.timerRunning ? <><Square size={14}/> Parar Tempo</> : <><Play size={14}/> Iniciar Tempo</>}
                 </button>
               ) : (
-                <div className="w-full flex items-center justify-center py-3 md:py-2.5 rounded-lg font-medium text-xs bg-[#0f1015] border border-[#2a2d3d] text-neutral-500">
-                  Timer Desativado
+                <div className="w-full flex items-center justify-center py-3 rounded-xl font-bold uppercase tracking-wider text-[11px] bg-[#0f1015] border border-[#2a2d3d] text-neutral-600">
+                  Card Fechado
                 </div>
               )}
             </div>
@@ -1265,7 +1090,7 @@ function TimerPanel({ tasks, now, getElapsed, onToggleTimer, user }) {
   );
 }
 
-function ResponsiblesPanel({ responsibles, setResponsibles, tasks, setTasks, user }) {
+function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTasks, user }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   
@@ -1282,7 +1107,7 @@ function ResponsiblesPanel({ responsibles, setResponsibles, tasks, setTasks, use
   };
 
   const remove = async (id) => { 
-    if(!user.isAdmin && id !== user.id) return alert("Não pode apagar outros responsáveis.");
+    if(!user.isAdmin && id !== user.id) return alert("Não tem permissão para apagar contas.");
     setResponsibles(prev => prev.filter(r => r.id !== id)); 
     setTasks(prev => prev.map(t => t.responsibleId === id ? { ...t, responsibleId: '' } : t)); 
     if (window.supabaseClient) {
@@ -1291,38 +1116,37 @@ function ResponsiblesPanel({ responsibles, setResponsibles, tasks, setTasks, use
   };
 
   return (
-    <div className="p-4 md:p-6 border-b border-[#2a2d3d] bg-[#1a1c24] fade-in shadow-inner">
-      <div className="flex items-center gap-2 mb-6 text-indigo-400">
-        <Users size={20} />
-        <h2 className="text-lg font-semibold text-white">Responsáveis (Contas)</h2>
-      </div>
-      
+    <div className="flex flex-col h-full fade-in">
       {user.isAdmin && (
-        <div className="bg-[#161821] p-4 rounded-2xl border border-[#2a2d3d] mb-6 flex flex-col sm:flex-row gap-3 max-w-2xl sm:items-end">
+        <div className="bg-[#161821] p-5 rounded-3xl border border-[#2a2d3d] mb-6 flex flex-col sm:flex-row gap-4 sm:items-end shadow-sm">
           <div className="w-full sm:flex-1">
-            <label className="text-[10px] uppercase font-bold text-neutral-500 mb-1.5 block">Nome</label>
+            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 mb-1.5 block ml-1">Nome Completo</label>
             <input value={name || ''} onChange={e=>setName(e.target.value)} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500" placeholder="Ex: João da Silva" />
           </div>
           <div className="w-full sm:flex-1">
-            <label className="text-[10px] uppercase font-bold text-neutral-500 mb-1.5 block">Senha Inicial</label>
-            <input type="password" value={password || ''} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key === 'Enter' && add()} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500" placeholder="Ex: 12345" />
+            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 mb-1.5 block ml-1">Senha Inicial</label>
+            <input type="password" value={password || ''} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key === 'Enter' && add()} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500" placeholder="Ex: lumina123" />
           </div>
-          <button onClick={add} className="w-full sm:w-auto h-[48px] sm:h-[42px] px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 shrink-0 shadow-lg shadow-indigo-600/20"><Plus size={16}/> Adicionar</button>
+          <button onClick={add} className="w-full sm:w-auto h-[48px] sm:h-[42px] px-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shrink-0 shadow-lg shadow-indigo-600/20"><Plus size={16}/> Criar</button>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {responsibles.map(r => {
           const count = tasks.filter(t => t.responsibleId === r.id).length;
           return (
-            <div key={r.id} className="flex items-center justify-between sm:justify-start gap-4 bg-[#161821] border border-[#2a2d3d] rounded-xl pl-4 pr-3 py-3 sm:py-2 group">
-              <div className="flex items-center gap-2">
-                <User size={16} className={r.name.toLowerCase() === 'othávio campbell' ? "text-amber-400" : "text-indigo-400"} />
-                <span className="text-sm font-bold text-neutral-200">{r.name}</span>
-                <span className="text-[10px] bg-[#0f1015] border border-[#2a2d3d] px-2 py-1 rounded-md text-neutral-400 ml-1">{count} Tarefas</span>
+            <div key={r.id} className="flex items-center justify-between gap-4 bg-[#161821] border border-[#2a2d3d] rounded-2xl p-4 group hover:border-[#3f4359] transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#0f1015] rounded-xl border border-[#2a2d3d]">
+                  <User size={16} className={r.name.toLowerCase() === 'othávio campbell' ? "text-amber-400" : "text-indigo-400"} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-neutral-200">{r.name}</span>
+                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">{count} Tarefas Ativas</span>
+                </div>
               </div>
               {(user.isAdmin || r.id === user.id) && (
-                 <button onClick={() => remove(r.id)} className="p-2 sm:p-1.5 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors sm:opacity-0 group-hover:opacity-100"><X size={16}/></button>
+                 <button onClick={() => remove(r.id)} className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors sm:opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
               )}
             </div>
           )
@@ -1330,6 +1154,172 @@ function ResponsiblesPanel({ responsibles, setResponsibles, tasks, setTasks, use
       </div>
     </div>
   );
+}
+
+function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getElapsed, now }) {
+  const [clientModal, setClientModal] = useState(null);
+
+  const openAdd = () => setClientModal({ mode: 'add', form: { name: '', emails: [], contractedHours: '' } });
+  
+  const openEdit = (client) => {
+    const emailsArray = Array.isArray(client.emails) ? client.emails : [];
+    setClientModal({ mode: 'edit', form: { ...client, emails: emailsArray } });
+  };
+
+  const remove = async (id) => { 
+    if(!user.isAdmin) return alert("Apenas administradores podem remover clientes.");
+    setClients(prev => prev.filter(c => c.id !== id)); 
+    setTasks(prev => prev.map(t => t.clientId === id ? { ...t, clientId: '' } : t)); 
+    if (window.supabaseClient) {
+      await window.supabaseClient.from('clients').delete().eq('id', id.toString());
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full fade-in relative">
+      {user.isAdmin && (
+         <div className="flex justify-end mb-4">
+           <button onClick={openAdd} className="w-full sm:w-auto px-6 py-3.5 sm:py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
+             <Plus size={16}/> Criar Cliente
+           </button>
+         </div>
+      )}
+      
+      <div className="grid grid-cols-1 gap-3">
+        {clients.length === 0 && (
+          <div className="text-center text-sm text-neutral-500 py-12 border border-dashed border-[#2a2d3d] rounded-2xl">
+            A sua carteira de clientes está vazia.
+          </div>
+        )}
+        {clients.map(c => {
+          const count = tasks.filter(t => t.clientId === c.id).length;
+          const emailsArray = Array.isArray(c.emails) ? c.emails : [];
+          
+          const cTasks = tasks.filter(t => t.clientId === c.id);
+          const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
+          const remaining = c.contractedHours ? c.contractedHours - hours : null;
+          const isNearLimit = remaining !== null && remaining <= 5;
+          
+          return (
+            <div key={c.id} onClick={() => openEdit(c)} className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#161821] border border-[#2a2d3d] rounded-2xl p-5 hover:border-purple-500/50 transition-all cursor-pointer gap-4 sm:gap-0 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-[#0f1015] rounded-xl border border-[#2a2d3d]"><Building2 size={20} className="text-purple-400" /></div>
+                <div className="flex flex-col">
+                  <span className="text-base font-bold text-neutral-100">{c.name}</span>
+                  <span className="text-[11px] text-neutral-500 mt-1 uppercase tracking-wider font-bold">
+                    {c.contractedHours ? <span className="text-indigo-400">Teto: {c.contractedHours}h | </span> : ''} {emailsArray.length === 0 ? "0 E-mails" : `${emailsArray.length} E-mail(s)`} • {count} Demandas
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3">
+                {isNearLimit && (
+                  <a href={generateLimitEmailLink(c, hours)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-3 sm:py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/20 transition-colors shrink-0">
+                    <AlertTriangle size={14}/> Aviso ({remaining.toFixed(1)}h)
+                  </a>
+                )}
+                {user.isAdmin && (
+                   <button onClick={(e) => { e.stopPropagation(); remove(c.id); }} className="p-3 sm:p-2 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors sm:opacity-0 group-hover:opacity-100">
+                     <Trash2 size={18} />
+                   </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {clientModal && <ClientModal modal={clientModal} setModal={setClientModal} setClients={setClients} />}
+    </div>
+  );
+}
+
+function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed, isClosing }) {
+  const [activeView, setActiveView] = useState('internal'); 
+  const [url, setUrl] = useState(localStorage.getItem('lumina_looker_url') || '');
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputUrl, setInputUrl] = useState(url);
+
+  const saveUrl = () => {
+    let finalUrl = inputUrl.trim();
+    if (finalUrl && finalUrl.includes('/reporting/') && !finalUrl.includes('/embed/')) {
+        finalUrl = finalUrl.replace('/reporting/', '/embed/reporting/');
+    }
+    setUrl(finalUrl);
+    localStorage.setItem('lumina_looker_url', finalUrl);
+    setIsEditing(false);
+  };
+
+  const exportTasksCSV = () => {
+    const headers = ["ID", "Título", "Status", "Prioridade", "Cliente", "Responsável", "Estimado (min)", "Gasto (h)"];
+    const rows = tasks.map(t => {
+      const clientName = clients.find(c => c.id === t.clientId)?.name || '-';
+      const respName = responsibles.find(r => r.id === t.responsibleId)?.name || '-';
+      const statusName = COLUMNS.find(c => c.id === t.status)?.name || t.status;
+      const elapsedH = (getElapsed(t) / 3600).toFixed(2);
+      return [t.id, `"${String(t.title || '').replace(/"/g, '""')}"`, statusName, t.priority, `"${clientName}"`, `"${respName}"`, t.durationMin || 0, elapsedH].join(',');
+    });
+    downloadCSV([headers.join(','), ...rows], 'lumina_tarefas.csv');
+  };
+
+  return (
+    <OverlayModal title="Lumina Analytics" icon={<BarChart3 className="text-blue-500" size={24}/>} onClose={onClose} fullWidth isClosing={isClosing}>
+      <div className="flex flex-col h-full fade-in">
+        
+        {/* Toggle View */}
+        <div className="flex justify-center mb-6 shrink-0">
+          <div className="bg-[#161821] border border-[#2a2d3d] p-1 rounded-xl flex gap-1">
+             <button onClick={() => setActiveView('internal')} className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeView === 'internal' ? 'bg-[#2a2d3d] text-white shadow-sm' : 'text-neutral-500 hover:text-white'}`}>Relatórios do Sistema</button>
+             <button onClick={() => setActiveView('looker')} className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${activeView === 'looker' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-neutral-500 hover:text-white'}`}><MonitorPlay size={14}/> Looker Studio</button>
+          </div>
+        </div>
+
+        {/* View 1: Relatórios do Sistema (Antigo ReportsPanel) */}
+        {activeView === 'internal' && (
+           <div className="flex flex-col gap-6 fade-in h-full">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-1">Por Status</h3><div className="flex flex-col gap-2">{COLUMNS.map(col => { const count = tasks.filter(t => t.status === col.id).length; return (<div key={col.id} className="flex justify-between items-center bg-[#161821] border border-[#2a2d3d] p-4 rounded-xl shadow-sm"><div className="flex items-center gap-3"><span className={`w-2.5 h-2.5 rounded-full ${col.dot}`} /><span className="text-xs text-neutral-300 font-bold uppercase">{col.name}</span></div><span className="text-base font-black text-white">{count}</span></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-1">Por Responsável</h3><div className="flex flex-col gap-2">{responsibles.map(r => { const rTasks = tasks.filter(t => t.responsibleId === r.id); const hours = rTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={r.id} className="bg-[#161821] border border-[#2a2d3d] p-4 rounded-xl shadow-sm"><div className="text-sm text-neutral-200 font-bold mb-1">{r.name}</div><div className="flex items-center gap-3 text-[10px] text-neutral-500 font-bold uppercase tracking-wider"><span>{rTasks.length} Tarefas</span><span>{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-1">Por Cliente</h3><div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto kp-scroll pr-2">{clients.map(c => { const cTasks = tasks.filter(t => t.clientId === c.id); if (cTasks.length === 0) return null; const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={c.id} className="bg-[#161821] border border-[#2a2d3d] p-4 rounded-xl shadow-sm"><div className="text-sm text-neutral-200 font-bold mb-1">{c.name}</div><div className="flex items-center gap-3 text-[10px] text-neutral-500 font-bold uppercase tracking-wider"><span>{cTasks.length} Tarefas</span><span>{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
+             </div>
+             <div className="flex justify-center mt-auto pt-6 border-t border-[#2a2d3d]">
+                <button onClick={exportTasksCSV} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-green-600/10 text-green-400 border border-green-500/30 hover:bg-green-600/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"><Download size={16}/> Baixar Exportação (CSV)</button>
+             </div>
+           </div>
+        )}
+
+        {/* View 2: Looker Studio (iFrame) */}
+        {activeView === 'looker' && (
+          <div className="flex-1 flex flex-col min-h-0 h-full fade-in">
+            {(!url || isEditing) ? (
+               <div className="flex-1 flex flex-col items-center justify-center max-w-xl mx-auto w-full text-center gap-6">
+                 <div className="w-20 h-20 rounded-3xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-2xl shadow-blue-500/10"><BarChart3 size={32} /></div>
+                 <div>
+                   <h3 className="text-2xl font-bold text-white mb-2">Painel do Cliente</h3>
+                   <p className="text-sm text-neutral-400 leading-relaxed">Siga o passo a passo no Guia de Integração para gerar o URL de Incorporação (Embed) do Looker Studio e cole-o abaixo.</p>
+                 </div>
+                 <div className="w-full">
+                    <input value={inputUrl} onChange={e => setInputUrl(e.target.value)} placeholder="https://lookerstudio.google.com/embed/reporting/..." className="w-full bg-[#161821] border border-[#2a2d3d] rounded-2xl px-6 py-4 text-sm text-white outline-none focus:border-blue-500 text-center shadow-inner mb-4" />
+                    <button onClick={saveUrl} className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-widest text-xs transition-all shadow-lg shadow-blue-600/20">Ligar Relatório</button>
+                 </div>
+                 {url && <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-neutral-500 uppercase tracking-widest hover:text-white mt-2">Cancelar</button>}
+               </div>
+            ) : (
+               <div className="flex flex-col h-full gap-4">
+                 <div className="flex justify-end shrink-0">
+                    <button onClick={() => {setInputUrl(url); setIsEditing(true);}} className="flex justify-center items-center gap-2 px-5 py-2.5 bg-[#2a2d3d] text-neutral-300 hover:bg-[#3f4359] rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"><Settings size={14}/> Trocar URL do Looker</button>
+                 </div>
+                 <div className="flex-1 w-full bg-[#161821] rounded-2xl border border-[#2a2d3d] overflow-hidden relative shadow-inner">
+                   <div className="absolute inset-0 flex items-center justify-center -z-10"><Cloud size={32} className="text-[#2a2d3d] animate-pulse" /></div>
+                   <iframe src={url} className="w-full h-full border-0 bg-transparent z-10 relative" allowFullScreen />
+                 </div>
+               </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </OverlayModal>
+  )
 }
 
 function ClientModal({ modal, setModal, setClients }) {
@@ -1368,7 +1358,7 @@ function ClientModal({ modal, setModal, setClients }) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] fade-in">
-      <div className="w-full max-w-md rounded-3xl bg-[#161821] border border-[#2a2d3d] flex flex-col shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md rounded-3xl bg-[#161821] border border-[#2a2d3d] flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
         <div className="px-6 py-5 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
           <h3 className="font-bold text-lg text-white">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
           <button onClick={() => setModal(null)} className="p-2 sm:p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-[#2a2d3d] transition-colors"><X size={20} /></button>
@@ -1381,7 +1371,7 @@ function ClientModal({ modal, setModal, setClients }) {
               autoFocus 
               value={form.name || ''} 
               onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationError(null); }} 
-              className={`w-full bg-[#0f1015] border rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors ${validationError?.includes("nome") ? "border-red-500" : "border-[#2a2d3d]"}`} 
+              className={`w-full bg-[#0f1015] border rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors ${validationError && String(validationError).includes("nome") ? "border-red-500" : "border-[#2a2d3d]"}`} 
               placeholder="Ex: Acme Corp" 
             />
           </div>
@@ -1450,149 +1440,25 @@ function ClientModal({ modal, setModal, setClients }) {
   );
 }
 
-function ClientsPanel({ clients, setClients, tasks, setTasks, user, getElapsed, now }) {
-  const [clientModal, setClientModal] = useState(null);
-
-  const openAdd = () => setClientModal({ mode: 'add', form: { name: '', emails: [], contractedHours: '' } });
-  
-  const openEdit = (client) => {
-    const emailsArray = Array.isArray(client.emails) ? client.emails : [];
-    setClientModal({ mode: 'edit', form: { ...client, emails: emailsArray } });
-  };
-
-  const remove = async (id) => { 
-    if(!user.isAdmin) return alert("Apenas administradores podem remover clientes.");
-    setClients(prev => prev.filter(c => c.id !== id)); 
-    setTasks(prev => prev.map(t => t.clientId === id ? { ...t, clientId: '' } : t)); 
-    if (window.supabaseClient) {
-      await window.supabaseClient.from('clients').delete().eq('id', id.toString());
-    }
-  };
-
+function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveModal, validationError, setValidationError }) {
+  const updateForm = (patch) => { setModal(m => ({ ...m, form: { ...m.form, ...patch } })); if (validationError) setValidationError(null); };
+  const addChecklistRow = () => { setModal(m => ({ ...m, form: { ...m.form, checklist: [...(m.form.checklist || []), { id: nextId(), text: "", done: false }] } })); };
   return (
-    <div className="p-4 md:p-6 border-b border-[#2a2d3d] bg-[#1a1c24] fade-in shadow-inner">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2 text-purple-400">
-          <Building2 size={20} />
-          <h2 className="text-lg font-semibold text-white">Clientes</h2>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[85] fade-in">
+      <div className="w-full max-w-lg rounded-3xl bg-[#161821] border border-[#2a2d3d] flex flex-col max-h-[95vh] sm:max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop">
+        <div className="px-5 sm:px-6 py-4 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]"><h3 className="font-bold text-lg text-white">{modal.mode === "add" ? "Novo Lumina" : "Editar Lumina"}</h3><button onClick={closeModal} className="p-2 sm:p-1.5 rounded-lg text-neutral-500 hover:text-white transition-colors"><X size={20} /></button></div>
+        <div className="p-5 sm:p-6 overflow-y-auto kp-scroll flex flex-col gap-4 sm:gap-5">
+          <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Título do Card *</label><input autoFocus value={modal.form.title || ''} onChange={(e) => updateForm({ title: e.target.value })} className={`w-full bg-[#0f1015] border rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500 transition-all ${validationError && String(validationError).includes("Título") ? "border-red-500" : "border-[#2a2d3d]"}`} placeholder="O que precisa ser feito?" /></div>
+          <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Contexto</label><textarea value={modal.form.description || ''} onChange={(e) => updateForm({ description: e.target.value })} rows={3} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500 resize-none transition-all" placeholder="Detalhes opcionais..." /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><CustomSelect label="Prioridade" value={modal.form.priority || ''} onChange={(e) => updateForm({ priority: e.target.value })} options={<><option value="Baixa">Baixa</option><option value="Média">Média</option><option value="Alta">Alta</option></>} /><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Est. Minutos</label><input type="number" value={modal.form.durationMin ?? ''} onChange={(e) => updateForm({ durationMin: e.target.value })} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500" /></div></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><CustomSelect label="Responsável" required hasError={validationError && String(validationError).includes("Responsável")} value={modal.form.responsibleId || ''} onChange={(e) => updateForm({ responsibleId: e.target.value })} options={<><option value="">Selecione...</option>{responsibles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</>} /><CustomSelect label="Cliente" value={modal.form.clientId || ''} onChange={(e) => updateForm({ clientId: e.target.value })} options={<><option value="">Nenhum</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Prazo</label><input type="date" value={modal.form.dueDate || ''} onChange={(e) => updateForm({ dueDate: e.target.value })} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark]" /></div><CustomSelect label="Fase do Fluxo" value={modal.form.status || ''} onChange={(e) => updateForm({ status: e.target.value, waitingFor: e.target.value === 'waiting' ? modal.form.waitingFor : "" })} options={COLUMNS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)} /></div>
+          {modal.form.status === 'waiting' && <div className="animate-fade-in"><CustomSelect label="Dependência" required hasError={validationError && String(validationError).includes("Aguardando Retorno")} value={modal.form.waitingFor || ''} onChange={(e) => updateForm({ waitingFor: e.target.value })} options={<><option value="">Pendente de...</option><option value="Cliente">Cliente</option><option value="Time Interno">Time Interno</option></>} /></div>}
+          <div><div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 ml-1">Checklist de Tarefas</label><button onClick={addChecklistRow} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors p-1">+ Add Item</button></div><div className="flex flex-col gap-2">{(modal.form.checklist || []).map((c) => (<div key={c.id} className="flex items-center gap-2"><button onClick={() => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, done: !ci.done } : ci) } })); }} className={`p-2 sm:p-1.5 border rounded-xl transition-all shrink-0 ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400' : 'bg-[#0f1015] border-[#2a2d3d] text-neutral-700 hover:text-neutral-500'}`}><Check size={16}/></button><input value={c.text || ''} onChange={(e) => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, text: e.target.value } : ci) } })); }} className="flex-1 bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 transition-all" placeholder="O que fazer?" /><button onClick={() => setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.filter(ci => ci.id !== c.id) } }))} className="p-2 text-neutral-600 hover:text-red-500 transition-colors"><X size={18} /></button></div>))}</div></div>
         </div>
-        {user.isAdmin && (
-           <button onClick={openAdd} className="px-5 py-3 md:py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-lg shadow-purple-600/20">
-             <Plus size={16}/> <span className="hidden sm:inline">Novo Cliente</span><span className="sm:hidden">Novo</span>
-           </button>
-        )}
+        <div className="px-5 sm:px-6 py-5 border-t border-[#2a2d3d] flex flex-col sm:flex-row items-center justify-end gap-3 bg-[#1a1c24]"><button onClick={closeModal} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-4 py-3 rounded-xl text-neutral-500 hover:text-white transition-colors">Sair</button><button onClick={saveModal} className="w-full sm:w-auto text-xs font-black uppercase tracking-[0.15em] px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-600/20">Salvar Alterações</button></div>
       </div>
-      
-      <div className="flex flex-col gap-3 max-w-4xl">
-        {clients.length === 0 && (
-          <div className="text-center text-sm text-neutral-500 py-8 border border-dashed border-[#2a2d3d] rounded-xl">
-            Nenhum cliente cadastrado.
-          </div>
-        )}
-        {clients.map(c => {
-          const count = tasks.filter(t => t.clientId === c.id).length;
-          const emailsArray = Array.isArray(c.emails) ? c.emails : [];
-          
-          const cTasks = tasks.filter(t => t.clientId === c.id);
-          const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
-          const remaining = c.contractedHours ? c.contractedHours - hours : null;
-          const isNearLimit = remaining !== null && remaining <= 5;
-          
-          return (
-            <div 
-              key={c.id} 
-              onClick={() => openEdit(c)}
-              className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#161821] border border-[#2a2d3d] rounded-xl p-4 sm:p-3 hover:border-purple-500/50 hover:bg-[#1a1c24] transition-all group cursor-pointer gap-4 sm:gap-0 shadow-sm"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-3 sm:p-2 bg-[#0f1015] rounded-lg border border-[#2a2d3d] hidden sm:block"><Building2 size={18} className="text-purple-400" /></div>
-                <div>
-                  <div className="text-sm font-bold text-neutral-200">{c.name}</div>
-                  <div className="text-[11px] text-neutral-500 mt-0.5">
-                    {c.contractedHours ? <span className="text-indigo-400 font-bold">Teto: {c.contractedHours}h | </span> : ''} {emailsArray.length === 0 ? "Sem e-mails" : `${emailsArray.length} e-mail(s)`}
-                  </div>
-                </div>
-                <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-1 rounded-md ml-2 shrink-0 font-bold">{count} tarefas</span>
-              </div>
-              
-              <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
-                {isNearLimit && (
-                  <a 
-                    href={generateLimitEmailLink(c, hours)} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()} 
-                    className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 px-4 py-2 sm:py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/20 transition-colors shrink-0"
-                  >
-                    <AlertTriangle size={14}/> <span className="hidden sm:inline">Aviso de Limite</span> ({remaining.toFixed(1)}h restam)
-                  </a>
-                )}
-                {user.isAdmin && (
-                   <button 
-                     onClick={(e) => { e.stopPropagation(); remove(c.id); }} 
-                     className="p-3 sm:p-2 text-neutral-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors sm:opacity-0 group-hover:opacity-100"
-                   >
-                     <Trash2 size={18} />
-                   </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {clientModal && (
-        <ClientModal modal={clientModal} setModal={setClientModal} setClients={setClients} />
-      )}
-    </div>
-  );
-}
-
-function ReportsPanel({ tasks, clients, responsibles, now, getElapsed }) {
-  const exportTasksCSV = () => {
-    const headers = ["ID", "Título", "Status", "Prioridade", "Cliente", "Responsável", "Estimado (min)", "Gasto (h)"];
-    const rows = tasks.map(t => {
-      const clientName = clients.find(c => c.id === t.clientId)?.name || '-';
-      const respName = responsibles.find(r => r.id === t.responsibleId)?.name || '-';
-      const statusName = COLUMNS.find(c => c.id === t.status)?.name || t.status;
-      const elapsedH = (getElapsed(t) / 3600).toFixed(2);
-      return [t.id, `"${String(t.title || '').replace(/"/g, '""')}"`, statusName, t.priority, `"${clientName}"`, `"${respName}"`, t.durationMin || 0, elapsedH].join(',');
-    });
-    downloadCSV([headers.join(','), ...rows], 'lumina_tarefas.csv');
-  };
-  const exportHoursCSV = () => {
-    const headers = ["Responsável", "Tarefas", "Horas Totais"];
-    const rows = responsibles.map(r => {
-      const rTasks = tasks.filter(t => t.responsibleId === r.id);
-      const hours = rTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0).toFixed(2);
-      return [`"${String(r.name || '')}"`, rTasks.length, hours].join(',');
-    });
-    downloadCSV([headers.join(','), ...rows], 'horas.csv');
-  };
-  const exportClientsCSV = () => {
-    const headers = ["Cliente", "E-mails", "Total Tarefas"];
-    const rows = clients.map(c => {
-      const count = tasks.filter(t => t.clientId === c.id).length;
-      const emailsArray = Array.isArray(c.emails) ? c.emails : [];
-      const emailsStr = emailsArray.join('; ');
-      return [`"${String(c.name || '')}"`, `"${emailsStr}"`, count].join(',');
-    });
-    downloadCSV([headers.join(','), ...rows], 'clientes.csv');
-  };
-
-  return (
-    <div className="p-4 md:p-6 border-b border-[#2a2d3d] bg-[#1a1c24] fade-in shadow-inner">
-      <div className="flex items-center gap-2 mb-6 text-blue-400"><BarChart3 size={20} /> <h2 className="text-lg font-bold">Analytics Lumina</h2></div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em]">Por Status</h3><div className="flex flex-col gap-2">{COLUMNS.map(col => { const count = tasks.filter(t => t.status === col.id).length; return (<div key={col.id} className="flex justify-between items-center bg-[#161821] border border-[#2a2d3d] p-3 rounded-xl shadow-sm"><div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${col.dot}`} /><span className="text-[11px] text-neutral-300 font-bold uppercase">{col.name}</span></div><span className="text-sm font-black text-white">{count}</span></div>)})}</div></div>
-        <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em]">Por Responsável</h3><div className="flex flex-col gap-2">{responsibles.map(r => { const rTasks = tasks.filter(t => t.responsibleId === r.id); const hours = rTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={r.id} className="bg-[#161821] border border-[#2a2d3d] p-3 rounded-xl shadow-sm"><div className="text-xs text-neutral-200 font-bold mb-1">{r.name}</div><div className="flex items-center gap-3 text-[10px] text-neutral-500 font-bold uppercase"><span>{rTasks.length} Tarefas</span><span>{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
-        <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em]">Por Cliente</h3><div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto kp-scroll pr-2">{clients.map(c => { const cTasks = tasks.filter(t => t.clientId === c.id); if (cTasks.length === 0) return null; const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={c.id} className="bg-[#161821] border border-[#2a2d3d] p-3 rounded-xl shadow-sm"><div className="text-xs text-neutral-200 font-bold mb-1">{c.name}</div><div className="flex items-center gap-3 text-[10px] text-neutral-500 font-bold uppercase"><span>{cTasks.length} Tarefas</span><span>{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
-      </div>
-      <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-6 border-t border-[#2a2d3d]">
-        <button onClick={exportTasksCSV} className="w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 sm:py-2.5 bg-green-600/10 text-green-400 border border-green-500/30 hover:bg-green-600/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"><Download size={14}/> Tarefas (CSV)</button>
-        <button onClick={exportHoursCSV} className="w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 sm:py-2.5 bg-blue-600/10 text-blue-400 border border-blue-500/30 hover:bg-blue-600/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"><Download size={14}/> Horas (CSV)</button>
-        <button onClick={exportClientsCSV} className="w-full sm:w-auto justify-center flex items-center gap-2 px-6 py-3 sm:py-2.5 bg-purple-600/10 text-purple-400 border border-purple-500/30 hover:bg-purple-600/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"><Download size={14}/> Clientes (CSV)</button>
-      </div>
+      {validationError && <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 fade-in z-[110] font-bold text-xs uppercase tracking-wider w-11/12 max-w-sm"><AlertTriangle size={18} className="shrink-0" /> <span className="truncate">{Array.isArray(validationError) ? validationError.join(", ") : String(validationError)}</span></div>}
     </div>
   );
 }
