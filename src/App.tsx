@@ -340,6 +340,14 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Monitora se está em Mobile
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Busca dados da Nuvem
   useEffect(() => {
     async function fetchCloudData() {
@@ -412,6 +420,9 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const [isClosingModal, setIsClosingModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [activeTooltipCol, setActiveTooltipCol] = useState<string | null>(null);
+  
+  // Controle de Filtros Mobile
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const [filterClient, setFilterClient] = useState("all");
   const [filterResp, setFilterResp] = useState("all");
@@ -477,7 +488,6 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const doneCount = visibleTasks.filter((t) => t.status === "done" || t.status === "formalize").length;
   const overallProgress = activeTasksCount ? Math.round((doneCount / activeTasksCount) * 100) : 0;
   
-  // Para fechamento, pegamos todas as demandas ativas (tirando backlog, a fazer e canceladas)
   const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done', 'formalize'].includes(t.status));
 
   const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, dueDate: "", status: "", waitingFor: "", checklist: [] };
@@ -768,7 +778,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     e.dataTransfer.setData("taskId", taskId);
   };
 
-  // Avatar sempre atualizado buscando do DB com fallback
+  // Avatar sempre atualizado buscando do DB com fallback para o nome
   const currentUserDB = responsibles.find(r => r.id === user.id) || responsibles.find(r => r.name.toLowerCase() === user.name.toLowerCase());
   const activeAvatar = currentUserDB?.avatar || user.avatar || '';
 
@@ -902,42 +912,51 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         {/* BOARD VIEW */}
         <div className={`flex-1 flex flex-col min-h-0 ${activeTab !== 'board' ? 'hidden md:flex opacity-30 pointer-events-none transition-opacity duration-300' : 'fade-in'}`}>
           
-          <div className="shrink-0 px-4 md:px-8 pb-5 flex flex-col gap-4">
-             {/* Filtros e Fechamento Semanal */}
-             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
+          <div className="shrink-0 px-4 md:px-8 pb-4 flex flex-col gap-3">
+             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 w-full">
                 
-                <div className="glass-panel p-3 sm:px-4 sm:py-2.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full lg:w-auto shadow-sm">
-                   <div className="flex items-center gap-2 w-full sm:w-auto">
-                       <Filter size={16} className="text-neutral-500 shrink-0 hidden sm:block" />
-                       <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
-                   </div>
-                   <div className="hidden sm:block w-px h-4 bg-white/10"></div>
-                   <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
-                   <div className="hidden sm:block w-px h-4 bg-white/10"></div>
-                   <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
-                </div>
+                {/* Linha Principal (Progresso, Botão Filtro Mobile e Fechar Semana) */}
+                <div className="flex items-center gap-2 sm:gap-3 w-full lg:w-auto">
+                   <button 
+                     onClick={() => setShowMobileFilters(!showMobileFilters)} 
+                     className={`lg:hidden h-11 w-11 flex items-center justify-center rounded-xl transition-all shadow-sm shrink-0 border ${showMobileFilters ? 'bg-indigo-600 text-white border-indigo-500' : 'glass-panel text-neutral-400 border-white/5 hover:text-white'}`}
+                   >
+                     <Filter size={18} />
+                   </button>
 
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto mt-1 lg:mt-0">
                    <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0">
                      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 hidden sm:block">Progresso</span>
-                     <div className="flex-1 sm:w-32 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
+                     <div className="flex-1 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
                      </div>
                      <span className="text-xs font-bold text-white shrink-0">{overallProgress}%</span>
                    </div>
 
                    {tasksForClosure.length > 0 && (
-                      <button onClick={() => setClosureModal(true)} className="flex-1 lg:flex-none h-11 px-4 sm:px-6 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
-                        <Mail size={16}/> <span className="whitespace-nowrap">Fechar Semana</span>
+                      <button onClick={() => setClosureModal(true)} className="h-11 px-4 sm:px-6 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
+                        <Mail size={16}/> <span className="whitespace-nowrap hidden sm:inline">Fechar Semana</span>
                       </button>
                     )}
                 </div>
+
+                {/* Filtros Container */}
+                <div className={`flex-col lg:flex-row items-stretch lg:items-center gap-2 w-full lg:w-auto ${showMobileFilters ? 'flex' : 'hidden lg:flex'}`}>
+                  <div className="glass-panel w-full lg:w-auto p-3 lg:px-4 lg:py-2.5 rounded-xl flex flex-col lg:flex-row items-stretch lg:items-center gap-3 shadow-sm">
+                    <Filter size={16} className="text-neutral-500 shrink-0 hidden lg:block" />
+                    <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                    <div className="hidden lg:block w-px h-4 bg-white/10"></div>
+                    <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
+                    <div className="hidden lg:block w-px h-4 bg-white/10"></div>
+                    <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
+                  </div>
+                </div>
+
              </div>
           </div>
 
           {/* Quadro Kanban */}
           <div className="flex-1 relative min-h-0">
-            <div className="absolute inset-0 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll" style={{ touchAction: 'pan-x' }}>
+            <div className="absolute inset-0 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll">
               <div className="flex gap-4 sm:gap-5 h-full min-w-max items-stretch">
                 {COLUMNS.map((col) => {
                   const colTasks = filteredTasks.filter((t) => t.status === col.id);
@@ -968,13 +987,15 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                         </button>
                       </div>
                       
-                      {/* Área de Cartões - min-h-0 garante que o scroll vertical interno funcione independentemente */}     
+                      {/* Área de Cartões */}     
                       <div 
                         className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0"
-                        onDragOver={(e) => { e.preventDefault(); }}
+                        onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
                         onDrop={(e) => {
-                          e.preventDefault();
-                          handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id);
+                          if (!isMobile) {
+                            e.preventDefault();
+                            handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id);
+                          }
                         }}
                       >
                         {colTasks.length === 0 && (
@@ -1340,12 +1361,12 @@ function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }: 
 
 function FilterSelect({ value, onChange, options, defaultLabel }: any) {
   return (
-    <div className="relative flex items-center w-full sm:w-auto shrink-0 flex-1 sm:flex-none">
-      <select value={value || 'all'} onChange={(e) => onChange(e.target.value)} className="appearance-none w-full sm:w-auto text-[11px] font-bold bg-transparent border border-white/5 sm:border-none pl-3 sm:pl-1 pr-8 sm:pr-6 py-2 sm:py-1 rounded-lg sm:rounded-none text-neutral-300 outline-none cursor-pointer transition-all hover:text-white">
+    <div className="relative flex items-center w-full lg:w-auto shrink-0 flex-1 lg:flex-none">
+      <select value={value || 'all'} onChange={(e) => onChange(e.target.value)} className="appearance-none w-full lg:w-auto text-[11px] font-bold bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none pl-4 pr-10 py-3 lg:p-0 lg:pr-6 rounded-xl lg:rounded-none text-neutral-300 outline-none cursor-pointer transition-all hover:text-white">
         <option value="all">{defaultLabel}</option>
         {options.map((o: any) => (<option key={o.id} value={o.id}>{o.name}</option>))}
       </select>
-      <ChevronDown size={14} className="absolute right-2 sm:right-0 text-neutral-600 pointer-events-none" />
+      <ChevronDown size={14} className="absolute right-4 lg:right-0 text-neutral-600 pointer-events-none" />
     </div>
   );
 }
