@@ -27,8 +27,12 @@ function formatTime(totalSeconds) {
 }
 
 function getBrasiliaDate() {
-  const formatter = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
-  return formatter.format(new Date());
+  const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const parts = formatter.formatToParts(new Date());
+  const day = parts.find(p => p.type === 'day').value;
+  const month = parts.find(p => p.type === 'month').value;
+  const year = parts.find(p => p.type === 'year').value;
+  return `${year}-${month}-${day}`;
 }
 
 function downloadCSV(dataArray, filename) {
@@ -46,7 +50,7 @@ function downloadCSV(dataArray, filename) {
 function TopWidgets() {
   const [dateStr, setDateStr] = useState('');
   const [timeStr, setTimeStr] = useState('');
-  const [weather, setWeather] = useState({ temp: '--', desc: 'A carregar...', Icon: Cloud, color: 'text-neutral-500' });
+  const [weather, setWeather] = useState({ temp: '--', desc: 'Carregando...', Icon: Cloud, color: 'text-neutral-500' });
 
   useEffect(() => {
     const updateTime = () => {
@@ -68,12 +72,12 @@ function TopWidgets() {
         const data = await res.json();
         const cw = data.current_weather;
         
-        let desc = "Tempo limpo"; let Icon = cw.is_day ? Sun : Moon; let color = cw.is_day ? "text-amber-400" : "text-indigo-200";
+        let desc = "Limpo"; let Icon = cw.is_day ? Sun : Moon; let color = cw.is_day ? "text-amber-400" : "text-indigo-200";
         if (cw.weathercode === 1 || cw.weathercode === 2 || cw.weathercode === 3) { desc = "Nublado"; Icon = Cloud; color = "text-neutral-300"; }
         else if (cw.weathercode === 45 || cw.weathercode === 48) { desc = "Nevoeiro"; Icon = CloudFog; color = "text-neutral-400"; }
         else if (cw.weathercode >= 51 && cw.weathercode <= 67) { desc = "Chuvoso"; Icon = CloudRain; color = "text-blue-400"; }
         else if (cw.weathercode >= 71 && cw.weathercode <= 77) { desc = "Neve"; Icon = Snowflake; color = "text-white"; }
-        else if (cw.weathercode >= 80 && cw.weathercode <= 82) { desc = "Pancadas de chuva"; Icon = CloudRain; color = "text-blue-400"; }
+        else if (cw.weathercode >= 80 && cw.weathercode <= 82) { desc = "Pancadas"; Icon = CloudRain; color = "text-blue-400"; }
         else if (cw.weathercode >= 95 && cw.weathercode <= 99) { desc = "Tempestade"; Icon = CloudLightning; color = "text-purple-400"; }
 
         setWeather({ temp: Math.round(cw.temperature), desc, Icon, color });
@@ -91,13 +95,13 @@ function TopWidgets() {
   }, []);
 
   return (
-    <div className="flex items-center gap-1.5 sm:gap-3">
-       <div className="hidden sm:flex items-center gap-2 bg-[#12121a] border border-[#27272a] px-3.5 py-1.5 rounded-full text-xs font-medium text-neutral-400 shadow-sm transition-all hover:bg-white/5 cursor-default">
+    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 sm:gap-3">
+       <div className="flex items-center gap-2 bg-[#12121a] border border-[#27272a] px-3 sm:px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-medium text-neutral-400 shadow-sm transition-all cursor-default">
           <weather.Icon size={14} className={weather.color} />
-          <span>{weather.temp}°C {weather.desc}</span>
+          <span>{weather.temp}°C <span className="hidden sm:inline">{weather.desc}</span></span>
        </div>
        <div className="flex items-center gap-1.5 sm:gap-2 bg-[#12121a] border border-[#27272a] px-3 sm:px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-medium text-neutral-400 shadow-sm cursor-default">
-          <Calendar size={14} className="text-indigo-400" />
+          <Calendar size={14} className="text-indigo-400 hidden sm:block" />
           <span className="capitalize">{dateStr}</span>
           <span className="opacity-30">|</span>
           <span className="text-white font-bold">{timeStr}</span>
@@ -139,12 +143,12 @@ function LoginScreen({ onLogin }) {
         if (!userRow.password) {
            await window.supabaseClient.from('responsibles').update({ password }).eq('id', userRow.id);
         }
-        onLogin({ id: userRow.id, name: userRow.name, isAdmin });
+        onLogin({ id: userRow.id, name: userRow.name, isAdmin, avatar: userRow.avatar || '' });
       } else {
-        const newResp = { id: 'r'+Date.now(), name: cleanName, password };
+        const newResp = { id: 'r'+Date.now(), name: cleanName, password, avatar: '' };
         const { error: insertErr } = await window.supabaseClient.from('responsibles').insert([newResp]);
         if (insertErr) throw insertErr;
-        onLogin({ id: newResp.id, name: cleanName, isAdmin });
+        onLogin({ id: newResp.id, name: cleanName, isAdmin, avatar: '' });
       }
     } catch (e) {
       console.error(e);
@@ -301,6 +305,14 @@ function KanbanMain({ user, setUser, onLogout }) {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Monitora se está em Mobile para desativar o arrasto e permitir Scroll
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Busca dados da Nuvem
   useEffect(() => {
     async function fetchCloudData() {
@@ -340,7 +352,8 @@ function KanbanMain({ user, setUser, onLogout }) {
         if (resResp.data) {
           setResponsibles(resResp.data.map(r => ({
             ...r,
-            name: r.name || ''
+            name: r.name || '',
+            avatar: r.avatar || ''
           })));
         }
 
@@ -370,6 +383,7 @@ function KanbanMain({ user, setUser, onLogout }) {
 
   const [activeTab, setActiveTab] = useState('board'); 
   const [isClosingModal, setIsClosingModal] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [filterClient, setFilterClient] = useState("all");
   const [filterResp, setFilterResp] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -710,8 +724,6 @@ function KanbanMain({ user, setUser, onLogout }) {
     e.dataTransfer.setData("taskId", taskId);
   };
 
-  const userAvatar = localStorage.getItem(`lumina_avatar_${user.id}`);
-
   if (isLoading) {
     return (
       <div className="h-screen w-full bg-[#09090b] flex flex-col items-center justify-center p-4 text-center">
@@ -768,11 +780,18 @@ function KanbanMain({ user, setUser, onLogout }) {
           </div>
         </div>
         
-        <div className="flex flex-col items-center gap-4">
-           <button onClick={() => setProfileModal(true)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors" title="Configurações de Perfil">
-             {userAvatar ? <img src={userAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+        <div className="flex flex-col items-center gap-4 relative">
+           <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors" title="Meu Perfil">
+             {user.avatar ? <img src={user.avatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
            </button>
-           <button onClick={onLogout} className="p-3 rounded-xl text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Sair"><LogOut size={20}/></button>
+           
+           {showProfileMenu && (
+             <div className="absolute bottom-16 left-0 w-48 bg-[#12121a] border border-[#27272a] rounded-2xl shadow-xl z-50 py-2 flex flex-col animate-modal-pop">
+                <button onClick={() => { setProfileModal(true); setShowProfileMenu(false); }} className="w-full text-left px-5 py-3 text-sm text-neutral-300 hover:bg-white/5 flex items-center gap-3 font-medium"><UserCog size={16}/> Editar Perfil</button>
+                <div className="h-px w-full bg-[#27272a] my-1"></div>
+                <button onClick={onLogout} className="w-full text-left px-5 py-3 text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-3 font-medium"><LogOut size={16}/> Sair do Lumina</button>
+             </div>
+           )}
         </div>
       </div>
 
@@ -780,31 +799,47 @@ function KanbanMain({ user, setUser, onLogout }) {
       <div className={`flex-1 flex flex-col min-w-0 bg-gradient-to-br from-[#09090b] to-[#0d0e15] relative`}>
         
         {/* HEADER TOP (Desktop & Mobile) */}
-        <div className="shrink-0 flex items-center justify-between p-4 md:px-8 md:py-6 relative z-20">
-          <div className="flex items-center gap-3">
-            {/* Mobile Title */}
-            <div className="md:hidden flex items-center gap-3">
-              <button onClick={() => setProfileModal(true)} className="w-9 h-9 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden">
-                {userAvatar ? <img src={userAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
-              </button>
-              <h1 className="font-bold text-xl text-white tracking-tight">Lumina</h1>
-            </div>
-            
-            {/* Desktop Title */}
-            <div className="hidden md:flex flex-col">
-              <div className="flex items-center gap-3">
-                <h1 className="font-bold text-2xl text-white tracking-tight">Kanban & Analytics</h1>
-                {isCloudSynced && (
-                  <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md flex items-center gap-1">
-                    <Cloud size={10} /> Sincronizado
-                  </span>
+        <div className="shrink-0 flex items-center justify-between p-4 md:px-8 md:py-6 relative z-20 gap-4">
+          
+          {/* Mobile Title & Profile */}
+          <div className="md:hidden flex items-center justify-between w-full">
+             <div className="flex items-center gap-3 relative">
+                <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors">
+                  {user.avatar ? <img src={user.avatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+                </button>
+                <h1 className="font-bold text-xl text-white tracking-tight">Lumina</h1>
+                
+                {showProfileMenu && (
+                   <div className="absolute top-12 left-0 mt-2 w-48 bg-[#12121a] border border-[#27272a] rounded-2xl shadow-xl z-50 py-2 flex flex-col animate-modal-pop">
+                      <button onClick={() => { setProfileModal(true); setShowProfileMenu(false); }} className="w-full text-left px-5 py-3 text-sm text-neutral-300 hover:bg-white/5 flex items-center gap-3 font-medium"><UserCog size={16}/> Editar Perfil</button>
+                      <div className="h-px w-full bg-[#27272a] my-1"></div>
+                      <button onClick={onLogout} className="w-full text-left px-5 py-3 text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-3 font-medium"><LogOut size={16}/> Sair do Lumina</button>
+                   </div>
                 )}
-              </div>
-              <span className="text-xs text-neutral-500 mt-1">Bem-vindo(a) de volta, {user.name}</span>
+             </div>
+             
+             {/* Small TopWidgets on Mobile */}
+             <div className="flex">
+                <TopWidgets />
+             </div>
+          </div>
+          
+          {/* Desktop Title */}
+          <div className="hidden md:flex flex-col">
+            <div className="flex items-center gap-3">
+              <h1 className="font-bold text-2xl text-white tracking-tight">Kanban & Analytics</h1>
+              {isCloudSynced && (
+                <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md flex items-center gap-1">
+                  <Cloud size={10} /> Sincronizado
+                </span>
+              )}
             </div>
+            <span className="text-xs text-neutral-500 mt-1">Bem-vindo(a) de volta, {user.name}</span>
           </div>
 
-          <TopWidgets />
+          <div className="hidden md:block">
+            <TopWidgets />
+          </div>
         </div>
 
         {/* MODAIS Overlay */}
@@ -891,7 +926,7 @@ function KanbanMain({ user, setUser, onLogout }) {
                         const isEditable = canEditTask(t.responsibleId);
 
                         return (
-                          <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={isEditable} onDragStart={(e) => { if(isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
+                          <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={isEditable && !isMobile} onDragStart={(e) => { if(isEditable && !isMobile) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
                             
                             {/* Badges do Cartão */}
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -937,8 +972,8 @@ function KanbanMain({ user, setUser, onLogout }) {
                             <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
                                <div className="flex items-center gap-2">
                                   {resp && (
-                                     <div className="w-5 h-5 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[9px] font-bold text-indigo-300 uppercase" title={`Responsável: ${resp.name}`}>
-                                        {resp.name.charAt(0)}
+                                     <div className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 uppercase overflow-hidden" title={`Responsável: ${resp.name}`}>
+                                        {resp.avatar ? <img src={resp.avatar} className="w-full h-full object-cover" alt={resp.name} /> : resp.name.charAt(0)}
                                      </div>
                                   )}
                                   
@@ -987,11 +1022,11 @@ function KanbanMain({ user, setUser, onLogout }) {
       </div>
 
       {/* MOBILE BOTTOM NAV */}
-      <div className="md:hidden shrink-0 flex items-center justify-around pt-3 px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] bg-[#12121a] border-t border-[#27272a] z-30 relative">
-         <MobileNavBtn icon={<LayoutDashboard size={20} />} active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
-         <MobileNavBtn icon={<Clock size={20} />} active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
-         <MobileNavBtn icon={<Building2 size={20} />} active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} alert={clientsNearLimit.length > 0} />
-         <MobileNavBtn icon={<BarChart3 size={20} />} active={activeTab === 'reports' && !isClosingModal} onClick={() => setActiveTab('reports')} />
+      <div className="md:hidden shrink-0 flex items-center justify-around pt-2 px-2 pb-[max(env(safe-area-inset-bottom),1rem)] bg-[#12121a] border-t border-[#27272a] z-30 relative">
+         <MobileNavBtn icon={<LayoutDashboard size={20} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
+         <MobileNavBtn icon={<Clock size={20} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
+         <MobileNavBtn icon={<Building2 size={20} />} label="Clientes" active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} alert={clientsNearLimit.length > 0} />
+         <MobileNavBtn icon={<BarChart3 size={20} />} label="Relatórios" active={activeTab === 'reports' && !isClosingModal} onClick={() => setActiveTab('reports')} />
       </div>
 
       {/* Pop-up: Perfil do Utilizador */}
@@ -1113,17 +1148,17 @@ function KanbanMain({ user, setUser, onLogout }) {
 
 function ProfileModal({ user, onClose, onUpdate }) {
   const [password, setPassword] = useState('');
-  const [avatarInput, setAvatarInput] = useState('');
-  const [currentAvatar, setCurrentAvatar] = useState(localStorage.getItem(`lumina_avatar_${user.id}`) || '');
+  const [avatarInput, setAvatarInput] = useState(user.avatar || '');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSave = async () => {
     setIsLoading(true);
     let updatedUser = { ...user };
+    let updates = {};
     
-    if (avatarInput.trim()) {
-      localStorage.setItem(`lumina_avatar_${user.id}`, avatarInput.trim());
-      setCurrentAvatar(avatarInput.trim());
+    if (avatarInput.trim() !== user.avatar) {
+      updates.avatar = avatarInput.trim();
+      updatedUser.avatar = avatarInput.trim();
     }
 
     if (password.trim()) {
@@ -1132,11 +1167,15 @@ function ProfileModal({ user, onClose, onUpdate }) {
         setIsLoading(false);
         return;
       }
-      try {
-        await window.supabaseClient.from('responsibles').update({ password: password.trim() }).eq('id', user.id);
-      } catch (e) {
-        console.error("Erro ao alterar senha", e);
-      }
+      updates.password = password.trim();
+    }
+    
+    if (Object.keys(updates).length > 0) {
+       try {
+         await window.supabaseClient.from('responsibles').update(updates).eq('id', user.id);
+       } catch (e) {
+         console.error("Erro ao alterar dados", e);
+       }
     }
     
     onUpdate(updatedUser);
@@ -1158,7 +1197,7 @@ function ProfileModal({ user, onClose, onUpdate }) {
         <div className="p-5 sm:p-8 flex flex-col gap-6">
           <div className="flex flex-col items-center gap-4 mb-2">
              <div className="w-24 h-24 rounded-[20px] bg-black border border-[#27272a] flex items-center justify-center text-3xl font-bold text-indigo-400 shadow-xl overflow-hidden relative group">
-                {currentAvatar ? <img src={currentAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+                {avatarInput ? <img src={avatarInput} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
              </div>
              <p className="text-sm font-bold text-white">{user.name}</p>
           </div>
@@ -1166,18 +1205,18 @@ function ProfileModal({ user, onClose, onUpdate }) {
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">URL da Fotografia de Perfil</label>
             <input value={avatarInput} onChange={e => setAvatarInput(e.target.value)} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="https://site.com/sua-foto.jpg" />
-            <p className="text-[10px] text-neutral-600 mt-1 ml-1">Cole o link (URL) direto de uma imagem online.</p>
+            <p className="text-[10px] text-neutral-600 mt-1.5 ml-1 leading-relaxed">Cole o link (URL) direto de uma imagem online. Ele será guardado no banco de dados para acesso em qualquer dispositivo.</p>
           </div>
 
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Nova Senha</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="Deixe em branco para manter" />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="Deixe em branco para manter a atual" />
           </div>
         </div>
         
         <div className="px-5 sm:px-8 py-5 border-t border-[#27272a] bg-[#0f0f13] flex items-center justify-end">
           <button onClick={handleSave} disabled={isLoading} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)]">
-            {isLoading ? "Salvando..." : "Salvar Alterações"}
+            {isLoading ? "A Salvar..." : "Salvar Alterações"}
           </button>
         </div>
       </div>
@@ -1197,11 +1236,12 @@ function SidebarBtn({ icon, active, onClick, tooltip, alert }) {
   );
 }
 
-function MobileNavBtn({ icon, active, onClick, alert }) {
+function MobileNavBtn({ icon, label, active, onClick, alert }) {
   return (
-    <button onClick={onClick} className={`p-3 rounded-xl flex items-center justify-center transition-all relative ${active ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'text-neutral-500 hover:text-white'}`}>
+    <button onClick={onClick} className={`flex-1 py-2 rounded-xl flex flex-col items-center justify-center transition-all relative gap-1.5 ${active ? 'text-indigo-400' : 'text-neutral-500 hover:text-neutral-300'}`}>
       {icon}
-      {alert && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
+      <span className="text-[9px] font-bold uppercase tracking-widest">{label}</span>
+      {alert && <span className="absolute top-1 right-[30%] w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
     </button>
   );
 }
@@ -1299,7 +1339,7 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
   const add = async () => { 
     if (!name.trim() || !password.trim()) return; 
     const newId = 'r'+Date.now();
-    const newResp = { id: newId, name: name.trim(), password: password };
+    const newResp = { id: newId, name: name.trim(), password: password, avatar: '' };
     setResponsibles([...responsibles, newResp]); 
     setName(''); 
     setPassword('');
@@ -1339,8 +1379,8 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
           return (
             <div key={r.id} className="flex items-center justify-between gap-4 bg-[#12121a] border border-[#27272a] rounded-2xl p-5 group hover:border-indigo-500/50 transition-all shadow-sm">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                  <User size={18} className={r.name.toLowerCase() === 'othávio campbell' ? "text-amber-400" : "text-indigo-400"} />
+                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                  {r.avatar ? <img src={r.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={18} className={r.name.toLowerCase() === 'othávio campbell' ? "text-amber-400" : "text-indigo-400"} />}
                 </div>
                 <div className="flex flex-col">
                   <span className="text-base font-bold text-neutral-100">{r.name}</span>
@@ -1381,12 +1421,12 @@ function ClientModal({ modal, setModal, setClients }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[70] fade-in">
       <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
-        <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
+        <div className="px-8 py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
           <h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
           <button onClick={() => setModal(null)} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button>
         </div>
         
-        <div className="p-5 sm:p-8 flex flex-col gap-6 bg-[#09090b]">
+        <div className="p-8 flex flex-col gap-6 bg-[#09090b]">
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Nome da Empresa *</label>
             <input autoFocus value={form.name || ''} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationError(null); }} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-purple-500 transition-colors ${validationError && String(validationError).includes("nome") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Ex: Acme Corp" />
@@ -1416,7 +1456,7 @@ function ClientModal({ modal, setModal, setClients }) {
           </div>
         </div>
         
-        <div className="px-5 sm:px-8 py-5 sm:py-6 border-t border-[#27272a] flex items-center justify-end gap-3 bg-[#0f0f13]">
+        <div className="px-8 py-6 border-t border-[#27272a] flex items-center justify-end gap-3 bg-[#0f0f13]">
           <button onClick={() => setModal(null)} className="flex-1 sm:flex-none text-xs font-bold uppercase tracking-widest px-5 py-4 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
           <button onClick={saveClient} className="flex-1 sm:flex-none text-xs font-black uppercase tracking-[0.15em] px-8 py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)]">Salvar Cliente</button>
         </div>
