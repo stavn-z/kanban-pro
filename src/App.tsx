@@ -46,6 +46,22 @@ function downloadCSV(dataArray, filename) {
   document.body.removeChild(link);
 }
 
+// --- Componente Inteligente de Avatar (Resolve Imagens Quebradas) ---
+function UserAvatar({ url, name, className }) {
+  const [error, setError] = useState(false);
+  
+  useEffect(() => {
+    setError(false); // Reset do erro se o URL mudar
+  }, [url]);
+
+  if (url && url.trim() !== '' && !error) {
+    return <img src={url} alt={name} onError={() => setError(true)} className={`w-full h-full object-cover ${className || ''}`} />;
+  }
+  
+  // Fallback se não tiver URL ou se a imagem der erro
+  return <span className="uppercase font-bold">{name ? name.charAt(0) : '?'}</span>;
+}
+
 // --- Componente de Top Widgets (Data, Hora e Clima Real) ---
 function TopWidgets() {
   const [dateStr, setDateStr] = useState('');
@@ -305,7 +321,7 @@ function KanbanMain({ user, setUser, onLogout }) {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Monitora se está em Mobile
+  // Monitora se está em Mobile para desativar o arrasto e permitir Scroll nativo
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -740,7 +756,7 @@ function KanbanMain({ user, setUser, onLogout }) {
   }
 
   return (
-    <div className="h-[100dvh] w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans">
+    <div className="h-[100dvh] w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans pb-16 md:pb-0">
       <style>{`
         .kp-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
@@ -786,7 +802,7 @@ function KanbanMain({ user, setUser, onLogout }) {
         
         <div className="flex flex-col items-center gap-4 relative">
            <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors" title="Meu Perfil">
-             {activeAvatar ? <img src={activeAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+             <UserAvatar url={activeAvatar} name={user.name} />
            </button>
            
            {showProfileMenu && (
@@ -809,7 +825,7 @@ function KanbanMain({ user, setUser, onLogout }) {
           <div className="md:hidden flex items-center justify-between w-full">
              <div className="flex items-center gap-3 relative">
                 <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors">
-                  {activeAvatar ? <img src={activeAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+                  <UserAvatar url={activeAvatar} name={user.name} />
                 </button>
                 <h1 className="font-bold text-xl text-white tracking-tight">Lumina</h1>
                 
@@ -887,13 +903,13 @@ function KanbanMain({ user, setUser, onLogout }) {
              </div>
           </div>
 
-          {/* Quadro Kanban (Scroll Horizontal e Vertical Nativo) */}
-          <div className="flex-1 overflow-x-auto px-4 md:px-8 pb-4 md:pb-8 kp-scroll">
+          {/* Quadro Kanban */}
+          <div className="flex-1 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-6 md:pb-8 kp-scroll min-h-0">
             <div className="flex gap-4 sm:gap-5 items-start h-full min-w-max">
               {COLUMNS.map((col) => {
                 const colTasks = filteredTasks.filter((t) => t.status === col.id);
                 return (
-                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col h-full shadow-sm">
+                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col h-full max-h-full shadow-sm">
                     
                     {/* Header da Coluna */}
                     <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5 shrink-0">
@@ -911,8 +927,8 @@ function KanbanMain({ user, setUser, onLogout }) {
                       </button>
                     </div>
                     
-                    {/* Área de Cartões com scroll vertical (touch-pan-y para mobile) */}
-                    <div className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3" style={{ touchAction: 'pan-y' }} onDragOver={(e) => { if (!isMobile) e.preventDefault(); }} onDrop={(e) => { if (!isMobile) { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}}>
+                    {/* Área de Cartões */}
+                    <div className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0" onDragOver={(e) => { if (!isMobile) e.preventDefault(); }} onDrop={(e) => { if (!isMobile) { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}}>
                       {colTasks.length === 0 && (
                         <div className="text-center text-[10px] font-medium uppercase tracking-widest text-neutral-600 py-10 border border-dashed border-white/5 rounded-xl mx-2">
                           Solte itens aqui
@@ -953,7 +969,7 @@ function KanbanMain({ user, setUser, onLogout }) {
                               <div className="flex items-center gap-1.5 text-[10px] mb-4 font-bold uppercase tracking-tight w-fit bg-pink-500/10 border border-pink-500/20 px-2.5 py-1 rounded-lg text-pink-400"><Clock size={12} /> Pendente: {t.waitingFor}</div>
                             )}
 
-                            {/* Checklist Detalhado Visível no Cartão */}
+                            {/* Checklist Detalhado */}
                             {total > 0 && (
                               <div className="mb-3">
                                 <div className="h-1 rounded-full bg-black/40 overflow-hidden mb-2 border border-white/5">
@@ -972,12 +988,12 @@ function KanbanMain({ user, setUser, onLogout }) {
                               </div>
                             )}
 
-                            {/* Info de Rodapé do Cartão com Botões Integrados */}
+                            {/* Info de Rodapé */}
                             <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
                                <div className="flex items-center gap-2">
                                   {resp && (
                                      <div className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 uppercase overflow-hidden" title={`Responsável: ${resp.name}`}>
-                                        {resp.avatar ? <img src={resp.avatar} className="w-full h-full object-cover" alt={resp.name} /> : resp.name.charAt(0)}
+                                        <UserAvatar url={resp.avatar} name={resp.name} />
                                      </div>
                                   )}
                                   
@@ -1026,7 +1042,7 @@ function KanbanMain({ user, setUser, onLogout }) {
       </div>
 
       {/* MOBILE BOTTOM NAV - Fixo na Base de Forma Responsiva */}
-      <div className="md:hidden shrink-0 flex items-center justify-around pt-2 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] bg-[#12121a] border-t border-[#27272a] z-[100] w-full">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around pt-3 px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] bg-[#12121a]/95 backdrop-blur-md border-t border-[#27272a] z-[100] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
          <MobileNavBtn icon={<LayoutDashboard size={20} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
          <MobileNavBtn icon={<Clock size={20} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
          <MobileNavBtn icon={<Building2 size={20} />} label="Clientes" active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} alert={clientsNearLimit.length > 0} />
@@ -1204,7 +1220,7 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }) {
         <div className="p-5 sm:p-8 flex flex-col gap-6">
           <div className="flex flex-col items-center gap-4 mb-2">
              <div className="w-24 h-24 rounded-[20px] bg-black border border-[#27272a] flex items-center justify-center text-3xl font-bold text-indigo-400 shadow-xl overflow-hidden relative group">
-                {avatarInput ? <img src={avatarInput} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+                <UserAvatar url={avatarInput} name={user.name} />
              </div>
              <p className="text-sm font-bold text-white">{user.name}</p>
           </div>
@@ -1387,7 +1403,7 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
             <div key={r.id} className="flex items-center justify-between gap-4 bg-[#12121a] border border-[#27272a] rounded-2xl p-5 group hover:border-indigo-500/50 transition-all shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
-                  {r.avatar ? <img src={r.avatar} alt="User" className="w-full h-full object-cover" /> : <User size={18} className={r.name.toLowerCase() === 'othávio campbell' ? "text-amber-400" : "text-indigo-400"} />}
+                  <UserAvatar url={r.avatar} name={r.name} />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-base font-bold text-neutral-100">{r.name}</span>
@@ -1919,7 +1935,7 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
         </div>
         <div className="px-6 sm:px-8 py-5 border-t border-[#27272a] flex flex-col sm:flex-row items-center justify-end gap-3 bg-[#0f0f13]"><button onClick={closeModal} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors">Cancelar</button><button onClick={saveModal} className="w-full sm:w-auto text-xs font-black uppercase tracking-[0.15em] px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)]">Salvar Demanda</button></div>
       </div>
-      {validationError && <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 fade-in z-[110] font-bold text-[11px] uppercase tracking-widest w-11/12 max-w-md"><AlertTriangle size={20} className="shrink-0" /> <span className="truncate">{Array.isArray(validationError) ? `Obrigatório: ${validationError.join(", ")}` : String(validationError)}</span></div>}
+      {validationError && <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 fade-in z-[80] font-bold text-[11px] uppercase tracking-widest w-11/12 max-w-md"><AlertTriangle size={20} className="shrink-0" /> <span className="truncate">{Array.isArray(validationError) ? `Obrigatório: ${validationError.join(", ")}` : String(validationError)}</span></div>}
     </div>
   );
 }
