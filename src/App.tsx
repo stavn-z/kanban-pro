@@ -18,7 +18,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // --- Funções Auxiliares ---
 const nextId = () => Math.random().toString(36).substr(2, 9);
 
-function formatTime(totalSeconds) {
+function formatTime(totalSeconds: number) {
   const s = Math.floor(totalSeconds);
   const h = String(Math.floor(s / 3600)).padStart(2, "0");
   const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
@@ -29,13 +29,13 @@ function formatTime(totalSeconds) {
 function getBrasiliaDate() {
   const formatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
   const parts = formatter.formatToParts(new Date());
-  const day = parts.find(p => p.type === 'day').value;
-  const month = parts.find(p => p.type === 'month').value;
-  const year = parts.find(p => p.type === 'year').value;
+  const day = parts.find(p => p.type === 'day')?.value || '01';
+  const month = parts.find(p => p.type === 'month')?.value || '01';
+  const year = parts.find(p => p.type === 'year')?.value || '2025';
   return `${year}-${month}-${day}`;
 }
 
-function downloadCSV(dataArray, filename) {
+function downloadCSV(dataArray: any[], filename: string) {
   const csvContent = "data:text/csv;charset=utf-8," + dataArray.join("\n");
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement("a");
@@ -46,27 +46,26 @@ function downloadCSV(dataArray, filename) {
   document.body.removeChild(link);
 }
 
-// --- Componente Inteligente de Avatar (Resolve Imagens Quebradas) ---
-function UserAvatar({ url, name, className }) {
+// --- Componente Inteligente de Avatar ---
+function UserAvatar({ url, name, className }: { url?: string, name?: string, className?: string }) {
   const [error, setError] = useState(false);
   
   useEffect(() => {
-    setError(false); // Reset do erro se o URL mudar
+    setError(false);
   }, [url]);
 
   if (url && url.trim() !== '' && !error) {
     return <img src={url} alt={name} onError={() => setError(true)} className={`w-full h-full object-cover ${className || ''}`} />;
   }
   
-  // Fallback se não tiver URL ou se a imagem der erro
-  return <span className="uppercase font-bold">{name ? name.charAt(0) : '?'}</span>;
+  return <span className={`uppercase font-bold ${className || ''}`}>{name ? name.charAt(0) : '?'}</span>;
 }
 
 // --- Componente de Top Widgets (Data, Hora e Clima Real) ---
 function TopWidgets() {
   const [dateStr, setDateStr] = useState('');
   const [timeStr, setTimeStr] = useState('');
-  const [weather, setWeather] = useState({ temp: '--', desc: 'Carregando...', Icon: Cloud, color: 'text-neutral-500' });
+  const [weather, setWeather] = useState({ temp: '--', desc: 'A carregar...', Icon: Cloud, color: 'text-neutral-500' });
 
   useEffect(() => {
     const updateTime = () => {
@@ -82,7 +81,7 @@ function TopWidgets() {
   }, []);
 
   useEffect(() => {
-    const fetchWeather = async (lat, lon) => {
+    const fetchWeather = async (lat: number, lon: number) => {
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
         const data = await res.json();
@@ -103,7 +102,7 @@ function TopWidgets() {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
-        () => fetchWeather(-19.9167, -43.9345) // Fallback: Belo Horizonte, MG
+        () => fetchWeather(-19.9167, -43.9345) // Fallback: Belo Horizonte
       );
     } else {
       fetchWeather(-19.9167, -43.9345);
@@ -127,7 +126,7 @@ function TopWidgets() {
 }
 
 // --- Componente de Login ---
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin }: { onLogin: any }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -142,7 +141,7 @@ function LoginScreen({ onLogin }) {
     
     setLoading(true);
     try {
-      const { data: userRow, error: fetchErr } = await window.supabaseClient
+      const { data: userRow, error: fetchErr } = await (window as any).supabaseClient
         .from('responsibles')
         .select('*')
         .ilike('name', cleanName)
@@ -157,12 +156,12 @@ function LoginScreen({ onLogin }) {
           return;
         }
         if (!userRow.password) {
-           await window.supabaseClient.from('responsibles').update({ password }).eq('id', userRow.id);
+           await (window as any).supabaseClient.from('responsibles').update({ password }).eq('id', userRow.id);
         }
         onLogin({ id: userRow.id, name: userRow.name, isAdmin, avatar: userRow.avatar || '' });
       } else {
         const newResp = { id: 'r'+Date.now(), name: cleanName, password, avatar: '' };
-        const { error: insertErr } = await window.supabaseClient.from('responsibles').insert([newResp]);
+        const { error: insertErr } = await (window as any).supabaseClient.from('responsibles').insert([newResp]);
         if (insertErr) throw insertErr;
         onLogin({ id: newResp.id, name: cleanName, isAdmin, avatar: '' });
       }
@@ -236,12 +235,12 @@ function LoginScreen({ onLogin }) {
 
 // --- Componente Principal ---
 export default function App() {
-  const [supabaseReady, setSupabaseReady] = useState(!!window.supabaseClient);
+  const [supabaseReady, setSupabaseReady] = useState(!!(window as any).supabaseClient);
 
   useEffect(() => {
-    if (window.supabase) {
-      if (!window.supabaseClient) {
-        window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+    if ((window as any).supabase) {
+      if (!(window as any).supabaseClient) {
+        (window as any).supabaseClient = (window as any).supabase.createClient(supabaseUrl, supabaseKey);
       }
       setSupabaseReady(true);
       return;
@@ -251,13 +250,13 @@ export default function App() {
     script.id = 'supabase-script';
     script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
     script.onload = () => {
-       window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+       (window as any).supabaseClient = (window as any).supabase.createClient(supabaseUrl, supabaseKey);
        setSupabaseReady(true);
     };
     document.body.appendChild(script);
   }, []);
 
-  const [user, setUser] = useState(() => {
+  const [user, setUser] = useState<any>(() => {
     try {
       const saved = localStorage.getItem("kanban_user_obj");
       return saved ? JSON.parse(saved) : null;
@@ -266,7 +265,7 @@ export default function App() {
     }
   });
 
-  const handleLogin = (userData) => {
+  const handleLogin = (userData: any) => {
     localStorage.setItem("kanban_user_obj", JSON.stringify(userData));
     setUser(userData);
   };
@@ -296,14 +295,14 @@ export default function App() {
 
 // --- Definição das Colunas e Estilos ---
 const COLUMNS = [
-    { id: "backlog", name: "Backlog", dot: "bg-indigo-500", accent: "border-indigo-500/50", bg: "bg-indigo-500/10", btn: "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border-indigo-500/20", help: "Ideias e novas demandas ainda não priorizadas." },
-    { id: "todo", name: "A Fazer", dot: "bg-amber-500", accent: "border-amber-500/50", bg: "bg-amber-500/10", btn: "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20", help: "Priorizadas e prontas para iniciar." },
+    { id: "backlog", name: "Backlog", dot: "bg-indigo-500", accent: "border-indigo-500/50", bg: "bg-indigo-500/10", btn: "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border-indigo-500/20", help: "Ideias e demandas não priorizadas." },
+    { id: "todo", name: "A Fazer", dot: "bg-amber-500", accent: "border-amber-500/50", bg: "bg-amber-500/10", btn: "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20", help: "Prontas para iniciar." },
     { id: "inprogress", name: "Em Andamento", dot: "bg-blue-500", accent: "border-blue-500/50", bg: "bg-blue-500/10", btn: "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20", help: "Demandas ativas no momento." },
     { id: "paused", name: "Pausado", dot: "bg-orange-500", accent: "border-orange-500/50", bg: "bg-orange-500/10", btn: "bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/20", help: "Demandas temporariamente interrompidas." },
     { id: "waiting", name: "Aguardando", dot: "bg-pink-500", accent: "border-pink-500/50", bg: "bg-pink-500/10", btn: "bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border-pink-500/20", help: "Aguardando resposta do cliente ou equipe." },
     { id: "review", name: "Em Revisão", dot: "bg-purple-500", accent: "border-purple-500/50", bg: "bg-purple-500/10", btn: "bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/20", help: "Concluídas aguardando aprovação." },
-    { id: "done", name: "Concluído", dot: "bg-emerald-500", accent: "border-emerald-500/50", bg: "bg-emerald-500/10", btn: "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20", help: "Demandas totalmente finalizadas." },
-    { id: "formalize", name: "Formalizar", dot: "bg-teal-500", accent: "border-teal-500/50", bg: "bg-teal-500/10", btn: "bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border-teal-500/20", help: "Aguardando envio de relatório ao cliente." },
+    { id: "done", name: "Concluído", dot: "bg-emerald-500", accent: "border-emerald-500/50", bg: "bg-emerald-500/10", btn: "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20", help: "Demandas finalizadas." },
+    { id: "formalize", name: "Formalizar", dot: "bg-teal-500", accent: "border-teal-500/50", bg: "bg-teal-500/10", btn: "bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border-teal-500/20", help: "Aguardando envio de relatório." },
     { id: "cancelled", name: "Cancelado", dot: "bg-red-500", accent: "border-red-500/50", bg: "bg-red-500/10", btn: "bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20", help: "Demandas descartadas." },
 ];
 
@@ -313,15 +312,15 @@ const PRIORITY_STYLE = {
   Alta: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", dot: "bg-red-500" },
 };
 
-function KanbanMain({ user, setUser, onLogout }) {
-  const [tasks, setTasks] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [responsibles, setResponsibles] = useState([]);
+function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLogout: any }) {
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [responsibles, setResponsibles] = useState<any[]>([]);
   
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Monitora se está em Mobile para desativar o arrasto e permitir Scroll nativo
+  // Monitora se está em Mobile
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -334,13 +333,13 @@ function KanbanMain({ user, setUser, onLogout }) {
     async function fetchCloudData() {
       try {
         const [resTasks, resClients, resResp] = await Promise.all([
-          window.supabaseClient.from('tasks').select('*'),
-          window.supabaseClient.from('clients').select('*'),
-          window.supabaseClient.from('responsibles').select('*')
+          (window as any).supabaseClient.from('tasks').select('*'),
+          (window as any).supabaseClient.from('clients').select('*'),
+          (window as any).supabaseClient.from('responsibles').select('*')
         ]);
 
         if (resTasks.data) {
-          setTasks(resTasks.data.map(t => ({
+          setTasks(resTasks.data.map((t: any) => ({
             ...t, 
             title: t.title || '',
             description: t.description || '',
@@ -357,7 +356,7 @@ function KanbanMain({ user, setUser, onLogout }) {
         }
 
         if (resClients.data) {
-          setClients(resClients.data.map(c => ({
+          setClients(resClients.data.map((c: any) => ({
             ...c,
             name: c.name || '',
             emails: Array.isArray(c.emails) ? c.emails : (typeof c.email === 'string' && c.email ? c.email.split(',').map(e => e.trim()) : []),
@@ -366,7 +365,7 @@ function KanbanMain({ user, setUser, onLogout }) {
         }
 
         if (resResp.data) {
-          setResponsibles(resResp.data.map(r => ({
+          setResponsibles(resResp.data.map((r: any) => ({
             ...r,
             name: r.name || '',
             avatar: r.avatar || ''
@@ -386,14 +385,14 @@ function KanbanMain({ user, setUser, onLogout }) {
   // Sincroniza Tarefas
   useEffect(() => {
     if (isCloudSynced && tasks.length > 0) {
-      window.supabaseClient.from('tasks').upsert(tasks).then();
+      (window as any).supabaseClient.from('tasks').upsert(tasks).then();
     }
   }, [tasks, isCloudSynced]);
 
   // Sincroniza Clientes
   useEffect(() => {
     if (isCloudSynced && clients.length > 0) {
-      window.supabaseClient.from('clients').upsert(clients).then();
+      (window as any).supabaseClient.from('clients').upsert(clients).then();
     }
   }, [clients, isCloudSynced]);
 
@@ -404,15 +403,15 @@ function KanbanMain({ user, setUser, onLogout }) {
   const [filterResp, setFilterResp] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   
-  const [modal, setModal] = useState(null); 
+  const [modal, setModal] = useState<any>(null); 
   const [profileModal, setProfileModal] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(null);
-  const [validationError, setValidationError] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<any>(null);
   
-  const [waitingPrompt, setWaitingPrompt] = useState(null);
-  const [donePrompt, setDonePrompt] = useState(null);
+  const [waitingPrompt, setWaitingPrompt] = useState<string | null>(null);
+  const [donePrompt, setDonePrompt] = useState<any>(null);
   const [closureModal, setClosureModal] = useState(false);
-  const [dragOverId, setDragOverId] = useState(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   
   const [now, setNow] = useState(Date.now());
 
@@ -431,7 +430,7 @@ function KanbanMain({ user, setUser, onLogout }) {
     return () => clearInterval(id);
   }, [tasks]);
 
-  const getElapsed = (t) => {
+  const getElapsed = (t: any) => {
     if (t.timerRunning) return t.timerElapsed + (now - t.timerStart) / 1000;
     return t.timerElapsed || 0;
   };
@@ -449,7 +448,7 @@ function KanbanMain({ user, setUser, onLogout }) {
 
   const pendingLimitAlerts = clientsNearLimit.filter(c => !dismissedLimits.has(c.id));
 
-  const canEditTask = (taskRespId) => taskRespId === user.id;
+  const canEditTask = (taskRespId: string) => taskRespId === user.id;
 
   const visibleTasks = user.isAdmin ? tasks : tasks.filter(t => t.responsibleId === user.id);
   
@@ -464,18 +463,17 @@ function KanbanMain({ user, setUser, onLogout }) {
   const doneCount = visibleTasks.filter((t) => t.status === "done" || t.status === "formalize").length;
   const overallProgress = activeTasksCount ? Math.round((doneCount / activeTasksCount) * 100) : 0;
   
-  // Para fechamento, pegamos todas as demandas ativas (tirando backlog, a fazer e canceladas)
   const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done', 'formalize'].includes(t.status));
 
   const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, dueDate: "", status: "", waitingFor: "", checklist: [] };
 
-  function openAddModal(status) {
+  function openAddModal(status: string) {
     setValidationError(null);
     setModal({ mode: "add", status, form: { ...emptyForm, status } });
   }
-  function openEditModal(task) {
+  function openEditModal(task: any) {
     setValidationError(null);
-    setModal({ mode: "edit", task, form: { ...task, checklist: Array.isArray(task.checklist) ? task.checklist.map((c) => ({ ...c })) : [] } });
+    setModal({ mode: "edit", task, form: { ...task, checklist: Array.isArray(task.checklist) ? task.checklist.map((c: any) => ({ ...c })) : [] } });
   }
   function closeModal() {
     setModal(null);
@@ -498,7 +496,7 @@ function KanbanMain({ user, setUser, onLogout }) {
       return;
     }
 
-    const allDone = f.checklist && f.checklist.length > 0 && f.checklist.every(c => c.done);
+    const allDone = f.checklist && f.checklist.length > 0 && f.checklist.every((c: any) => c.done);
     let finalStatus = f.status || modal.status;
 
     if (allDone && finalStatus !== 'done' && finalStatus !== 'cancelled' && finalStatus !== 'formalize') {
@@ -529,7 +527,7 @@ function KanbanMain({ user, setUser, onLogout }) {
         dueDate: f.dueDate || '',
         status: finalStatus,
         waitingFor: f.waitingFor || '',
-        checklist: (f.checklist || []).filter((c) => c.text.trim()),
+        checklist: (f.checklist || []).filter((c: any) => c.text.trim()),
         timerRunning: false,
         timerStart: null,
         timerElapsed: 0,
@@ -565,7 +563,7 @@ function KanbanMain({ user, setUser, onLogout }) {
             dueDate: f.dueDate || '',
             status: finalStatus,
             waitingFor: f.waitingFor || '',
-            checklist: (f.checklist || []).filter((c) => c.text.trim()),
+            checklist: (f.checklist || []).filter((c: any) => c.text.trim()),
             timerRunning, timerElapsed, timerStart
           };
         })
@@ -574,7 +572,7 @@ function KanbanMain({ user, setUser, onLogout }) {
     closeModal();
   }
 
-  function toggleTimer(id) {
+  function toggleTimer(id: string) {
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
@@ -587,7 +585,7 @@ function KanbanMain({ user, setUser, onLogout }) {
     );
   }
 
-  const handleRequestMove = (taskId, targetId, newStatus) => {
+  const handleRequestMove = (taskId: string, targetId: string | null, newStatus: string) => {
     const task = tasks.find(t => t.id.toString() === taskId.toString());
     if (!task) return;
 
@@ -669,7 +667,7 @@ function KanbanMain({ user, setUser, onLogout }) {
     setDonePrompt(null);
   };
 
-  const moveTask = (draggedId, targetId, newStatus) => {
+  const moveTask = (draggedId: string, targetId: string | null, newStatus: string) => {
     if (!draggedId) return;
     
     setTasks(prev => {
@@ -717,16 +715,16 @@ function KanbanMain({ user, setUser, onLogout }) {
     });
   };
 
-  const toggleChecklistItem = (taskId, itemId) => {
+  const toggleChecklistItem = (taskId: string, itemId: string) => {
     setTasks(prev => {
       const newTasks = prev.map(t => {
         if (t.id !== taskId) return t;
-        const newChecklist = (t.checklist || []).map(c => c.id === itemId ? { ...c, done: !c.done } : c);
+        const newChecklist = (t.checklist || []).map((c: any) => c.id === itemId ? { ...c, done: !c.done } : c);
         return { ...t, checklist: newChecklist };
       });
 
       const updatedTask = newTasks.find(t => t.id === taskId);
-      const allDone = updatedTask.checklist && updatedTask.checklist.length > 0 && updatedTask.checklist.every(c => c.done);
+      const allDone = updatedTask.checklist && updatedTask.checklist.length > 0 && updatedTask.checklist.every((c: any) => c.done);
 
       if (allDone && updatedTask.status !== 'done' && updatedTask.status !== 'cancelled' && updatedTask.status !== 'formalize') {
         setTimeout(() => handleRequestMove(taskId, null, 'done'), 0);
@@ -736,11 +734,11 @@ function KanbanMain({ user, setUser, onLogout }) {
     });
   };
 
-  const handleDragStart = (e, taskId) => {
+  const handleDragStart = (e: any, taskId: string) => {
     e.dataTransfer.setData("taskId", taskId);
   };
 
-  // Avatar sempre atualizado buscando do DB com fallback
+  // Avatar sempre atualizado buscando do DB com fallback para o nome
   const currentUserDB = responsibles.find(r => r.id === user.id) || responsibles.find(r => r.name.toLowerCase() === user.name.toLowerCase());
   const activeAvatar = currentUserDB?.avatar || user.avatar || '';
 
@@ -756,12 +754,14 @@ function KanbanMain({ user, setUser, onLogout }) {
   }
 
   return (
-    <div className="fixed inset-0 w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans">  
+    <div className="fixed inset-0 w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans">
       <style>{`
         .kp-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
         .kp-scroll::-webkit-scrollbar-track { background: transparent; }
+        
+        .kp-scroll { -webkit-overflow-scrolling: touch; }
         
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -778,14 +778,10 @@ function KanbanMain({ user, setUser, onLogout }) {
         .animate-modal-out { animation: modalPopOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes modalPopOut { 0% { opacity: 1; transform: scale(1) translateY(0); } 100% { opacity: 0; transform: scale(0.97) translateY(10px); } }
         
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
 
         .glass-panel { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-
-        /* LINHA NOVA ADICIONADA ABAIXO */
-        .kp-scroll { -webkit-overflow-scrolling: touch; }
       `}</style>
 
       {/* LEFT SIDEBAR (Desktop) */}
@@ -827,11 +823,13 @@ function KanbanMain({ user, setUser, onLogout }) {
           
           {/* Mobile Title & Profile */}
           <div className="md:hidden flex items-center justify-between w-full">
-             <div className="flex items-center gap-3 relative">
-                <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors">
+             <div className="flex items-center gap-3 relative min-w-0">
+                <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 shrink-0 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors">
                   <UserAvatar url={activeAvatar} name={user.name} />
                 </button>
-                <h1 className="font-bold text-xl text-white tracking-tight">Lumina</h1>
+                <h1 className="font-bold text-lg text-white tracking-tight truncate">
+                  Olá, {user.name.split(' ')[0]}
+                </h1>
                 
                 {showProfileMenu && (
                    <div className="absolute top-12 left-0 mt-2 w-48 bg-[#12121a] border border-[#27272a] rounded-2xl shadow-xl z-50 py-2 flex flex-col animate-modal-pop">
@@ -842,8 +840,7 @@ function KanbanMain({ user, setUser, onLogout }) {
                 )}
              </div>
              
-             {/* Small TopWidgets on Mobile */}
-             <div className="flex">
+             <div className="flex shrink-0">
                 <TopWidgets />
              </div>
           </div>
@@ -878,28 +875,29 @@ function KanbanMain({ user, setUser, onLogout }) {
           <div className="shrink-0 px-4 md:px-8 pb-5 flex flex-col gap-4">
              {/* Filtros e Fechamento Semanal */}
              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
-                <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar w-full lg:w-auto">
-                  <div className="glass-panel px-4 py-2.5 rounded-xl flex items-center gap-3 min-w-max shadow-sm mb-1">
-                    <Filter size={16} className="text-neutral-500 shrink-0" />
-                    <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
-                    <div className="w-px h-4 bg-white/10"></div>
-                    <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
-                    <div className="w-px h-4 bg-white/10"></div>
-                    <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
-                  </div>
+                
+                <div className="glass-panel p-3 sm:px-4 sm:py-2.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full lg:w-auto shadow-sm">
+                   <div className="flex items-center gap-2 w-full sm:w-auto">
+                       <Filter size={16} className="text-neutral-500 shrink-0 hidden sm:block" />
+                       <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                   </div>
+                   <div className="hidden sm:block w-px h-4 bg-white/10"></div>
+                   <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
+                   <div className="hidden sm:block w-px h-4 bg-white/10"></div>
+                   <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
                 </div>
 
-                <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto hide-scrollbar pb-1">
-                   <div className="glass-panel h-11 flex-1 lg:flex-none flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-max">
-                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 whitespace-nowrap">Progresso</span>
-                     <div className="w-24 sm:w-32 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto mt-1 lg:mt-0">
+                   <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0">
+                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 hidden sm:block">Progresso</span>
+                     <div className="flex-1 sm:w-32 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
                      </div>
-                     <span className="text-xs font-bold text-white">{overallProgress}%</span>
+                     <span className="text-xs font-bold text-white shrink-0">{overallProgress}%</span>
                    </div>
 
                    {tasksForClosure.length > 0 && (
-                      <button onClick={() => setClosureModal(true)} className="h-11 px-4 sm:px-5 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
+                      <button onClick={() => setClosureModal(true)} className="h-11 w-full sm:w-auto px-4 sm:px-5 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
                         <Mail size={16}/> Fechar Semana
                       </button>
                     )}
@@ -907,9 +905,7 @@ function KanbanMain({ user, setUser, onLogout }) {
              </div>
           </div>
 
-          {/* ========================================================= */}
-          {/* Quadro Kanban (Correção Definitiva de Altura e Scroll)    */}
-          {/* ========================================================= */}
+          {/* Quadro Kanban */}
           <div className="flex-1 relative min-h-0">
             <div className="absolute inset-0 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll">
               <div className="flex gap-4 sm:gap-5 h-full min-w-max items-stretch">
@@ -920,9 +916,14 @@ function KanbanMain({ user, setUser, onLogout }) {
                       
                       {/* Header da Coluna */}
                       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5 shrink-0">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`w-2.5 h-2.5 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} />
+                        <div className="flex items-center gap-2 relative group cursor-default">
+                          <span className={`w-2.5 h-2.5 shrink-0 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} />
                           <h2 className="text-xs font-bold uppercase tracking-widest text-white">{col.name}</h2>
+                          <HelpCircle size={14} className="text-neutral-500 hover:text-neutral-300 transition-colors cursor-help ml-0.5" />
+                          
+                          <div className="absolute left-0 top-full mt-2 w-56 sm:w-64 p-3 bg-[#1c1d26] border border-[#27272a] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] pointer-events-none normal-case tracking-normal">
+                            <div className="text-[11px] text-neutral-300 leading-relaxed font-normal">{col.help}</div>
+                          </div>
                         </div>
                         <span className="text-[10px] px-2.5 py-1 rounded-lg bg-black/40 text-neutral-400 font-bold border border-white/5">{colTasks.length}</span>
                       </div>
@@ -934,11 +935,16 @@ function KanbanMain({ user, setUser, onLogout }) {
                         </button>
                       </div>
                       
-                      {/* Área de Cartões - O min-h-0 e flex-1 garantem a rolagem */}     
+                      {/* Área de Cartões - min-h-0 garante que o scroll interno funcione */}     
                       <div 
                         className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0"
                         onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
-                        onDrop={(e) => { if (!isMobile) { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); } }}
+                        onDrop={(e) => {
+                          if (!isMobile) {
+                            e.preventDefault();
+                            handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id);
+                          }
+                        }}
                       >
                         {colTasks.length === 0 && (
                           <div className="text-center text-[10px] font-medium uppercase tracking-widest text-neutral-600 py-10 border border-dashed border-white/5 rounded-xl mx-2">
@@ -1067,8 +1073,8 @@ function KanbanMain({ user, setUser, onLogout }) {
 
       {/* Pop-up: Aguardando Retorno */}
       {waitingPrompt && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] fade-in">
-          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] p-8 shadow-2xl relative animate-modal-pop">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] fade-in" onClick={() => setWaitingPrompt(null)}>
+          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] p-8 shadow-2xl relative animate-modal-pop" onClick={e => e.stopPropagation()}>
             <button onClick={() => setWaitingPrompt(null)} className="absolute top-6 right-6 text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
             <div className="flex items-center gap-3 mb-6 text-pink-500">
               <div className="p-3 bg-pink-500/10 rounded-2xl shadow-inner"><HelpCircle size={24} /></div>
@@ -1085,8 +1091,8 @@ function KanbanMain({ user, setUser, onLogout }) {
 
       {/* Pop-up: Conclusão de Demanda */}
       {donePrompt && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[90] fade-in">
-          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl relative overflow-hidden animate-modal-pop">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[90] fade-in" onClick={() => { setDonePrompt(null); setValidationError(null); }}>
+          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl relative overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center gap-3 text-emerald-500">
               <CheckCircle2 size={24} />
               <h3 className="font-bold text-xl text-white tracking-tight">Finalizar Demanda</h3>
@@ -1144,8 +1150,8 @@ function KanbanMain({ user, setUser, onLogout }) {
 
       {/* Confirmar Exclusão de Cartão */}
       {confirmDelete !== null && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[110] fade-in">
-          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] p-5 sm:p-8 shadow-2xl relative animate-modal-pop">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[110] fade-in" onClick={() => setConfirmDelete(null)}>
+          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] p-5 sm:p-8 shadow-2xl relative animate-modal-pop" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4 text-red-500">
               <div className="p-3 bg-red-500/10 rounded-2xl shadow-inner"><Trash2 size={24} /></div>
               <h3 className="font-bold text-xl tracking-tight">Apagar Card</h3>
@@ -1179,8 +1185,8 @@ function KanbanMain({ user, setUser, onLogout }) {
 
 // --- Sub-Componentes UI Reutilizáveis (Lumina 2.0 Estilo) ---
 
-function ProfileModal({ user, responsibles, onClose, onUpdate }) {
-  const currentUserDB = responsibles.find(r => r.id === user.id) || responsibles.find(r => r.name.toLowerCase() === user.name.toLowerCase());
+function ProfileModal({ user, responsibles, onClose, onUpdate }: any) {
+  const currentUserDB = responsibles.find((r: any) => r.id === user.id) || responsibles.find((r: any) => r.name.toLowerCase() === user.name.toLowerCase());
   const activeAvatar = currentUserDB?.avatar || user.avatar || '';
 
   const [password, setPassword] = useState('');
@@ -1190,7 +1196,7 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }) {
   const handleSave = async () => {
     setIsLoading(true);
     let updatedUser = { ...user };
-    let updates = {};
+    let updates: any = {};
     
     if (avatarInput.trim() !== activeAvatar) {
       updates.avatar = avatarInput.trim();
@@ -1208,7 +1214,7 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }) {
     
     if (Object.keys(updates).length > 0) {
        try {
-         await window.supabaseClient.from('responsibles').update(updates).eq('id', currentUserDB?.id || user.id);
+         await (window as any).supabaseClient.from('responsibles').update(updates).eq('id', currentUserDB?.id || user.id);
        } catch (e) {
          console.error("Erro ao alterar dados", e);
        }
@@ -1220,8 +1226,8 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[90] fade-in">
-      <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl relative overflow-hidden animate-modal-pop">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[90] fade-in" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl relative overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
         <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] bg-[#0f0f13] flex items-center justify-between">
           <div className="flex items-center gap-3">
              <UserCog size={20} className="text-indigo-400" />
@@ -1260,7 +1266,7 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }) {
   );
 }
 
-function SidebarBtn({ icon, active, onClick, tooltip, alert }) {
+function SidebarBtn({ icon, active, onClick, tooltip, alert }: any) {
   return (
     <button onClick={onClick} className={`w-12 h-12 rounded-[14px] flex items-center justify-center transition-all relative group ${active ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'bg-transparent text-neutral-500 hover:bg-white/5 hover:text-white'}`}>
       {icon}
@@ -1272,7 +1278,7 @@ function SidebarBtn({ icon, active, onClick, tooltip, alert }) {
   );
 }
 
-function MobileNavBtn({ icon, label, active, onClick, alert }) {
+function MobileNavBtn({ icon, label, active, onClick, alert }: any) {
   return (
     <button onClick={onClick} className={`flex-1 py-2 px-1 rounded-xl flex flex-col items-center justify-center transition-all relative gap-1.5 ${active ? 'text-indigo-400' : 'text-neutral-500 hover:text-neutral-300'}`}>
       {icon}
@@ -1282,10 +1288,10 @@ function MobileNavBtn({ icon, label, active, onClick, alert }) {
   );
 }
 
-function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }) {
+function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }: any) {
   return (
-    <div className={`fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-[60] ${isClosing ? 'fade-out' : 'fade-in'}`}>
-      <div className={`bg-[#12121a] border border-[#27272a] rounded-[32px] shadow-2xl flex flex-col overflow-hidden w-full ${isClosing ? 'animate-modal-out' : 'animate-modal-pop'} ${fullWidth ? 'max-w-7xl h-[90vh]' : 'max-w-4xl max-h-[85vh]'}`}>
+    <div className={`fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-[60] ${isClosing ? 'fade-out' : 'fade-in'}`} onClick={onClose}>
+      <div className={`bg-[#12121a] border border-[#27272a] rounded-[32px] shadow-2xl flex flex-col overflow-hidden w-full ${isClosing ? 'animate-modal-out' : 'animate-modal-pop'} ${fullWidth ? 'max-w-7xl h-[90vh]' : 'max-w-4xl max-h-[85vh]'}`} onClick={(e) => e.stopPropagation()}>
         <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
            <div className="flex items-center gap-4">
              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 hidden sm:block">{icon}</div>
@@ -1301,19 +1307,19 @@ function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }) 
   )
 }
 
-function FilterSelect({ value, onChange, options, defaultLabel }) {
+function FilterSelect({ value, onChange, options, defaultLabel }: any) {
   return (
-    <div className="relative flex items-center shrink-0">
-      <select value={value || 'all'} onChange={(e) => onChange(e.target.value)} className="appearance-none text-[11px] font-bold bg-transparent border-none pl-1 pr-6 py-1 text-neutral-300 outline-none cursor-pointer transition-all hover:text-white">
+    <div className="relative flex items-center w-full sm:w-auto shrink-0 flex-1 sm:flex-none">
+      <select value={value || 'all'} onChange={(e) => onChange(e.target.value)} className="appearance-none w-full sm:w-auto text-[11px] font-bold bg-transparent border border-white/5 sm:border-none pl-3 sm:pl-1 pr-8 sm:pr-6 py-2 sm:py-1 rounded-lg sm:rounded-none text-neutral-300 outline-none cursor-pointer transition-all hover:text-white">
         <option value="all">{defaultLabel}</option>
-        {options.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
+        {options.map((o: any) => (<option key={o.id} value={o.id}>{o.name}</option>))}
       </select>
-      <ChevronDown size={14} className="absolute right-0 text-neutral-600 pointer-events-none" />
+      <ChevronDown size={14} className="absolute right-2 sm:right-0 text-neutral-600 pointer-events-none" />
     </div>
   );
 }
 
-function CustomSelect({ label, value, onChange, options, hasError, required }) {
+function CustomSelect({ label, value, onChange, options, hasError, required }: any) {
   return (
     <div className="w-full">
       <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">{label} {required && <span className="text-red-500">*</span>}</label>
@@ -1327,74 +1333,9 @@ function CustomSelect({ label, value, onChange, options, hasError, required }) {
   );
 }
 
-// --- Componente Auxiliar para Scroll das Colunas no Mobile ---
-function ColumnCardsList({ children, isMobile, col, handleRequestMove }) {
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    let startX = 0;
-    let startY = 0;
-    let locked = null;
-
-    const onTouchStart = (e) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      locked = null;
-    };
-
-    const onTouchMove = (e) => {
-      const dx = Math.abs(e.touches[0].clientX - startX);
-      const dy = Math.abs(e.touches[0].clientY - startY);
-
-      // Decide a direção na primeira movimentação significativa
-      if (!locked && (dx > 4 || dy > 4)) {
-        locked = dy > dx ? 'vertical' : 'horizontal';
-      }
-
-      // Se for vertical, previne o pai de roubar o scroll
-      if (locked === 'vertical') {
-        e.stopPropagation();
-      }
-    };
-
-    // passive:true mantém performance nativa no iOS
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: true });
-
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-    };
-  }, []);
-
-  return (
-    <div
-      ref={scrollRef}
-      className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0"
-      style={{
-        overscrollBehavior: 'contain',
-        WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y',
-      }}
-      onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
-      onDrop={(e) => {
-        if (!isMobile) {
-          e.preventDefault();
-          handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id);
-        }
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 // --- Componentes Internos de Modais ---
-function TimerPanelContent({ tasks, now, getElapsed, onToggleTimer, user }) {
-  const activeTasks = tasks.filter(t => (t.timerRunning || t.timerElapsed > 0) && t.responsibleId === user.id).sort((a,b) => b.timerRunning - a.timerRunning);
+function TimerPanelContent({ tasks, now, getElapsed, onToggleTimer, user }: any) {
+  const activeTasks = tasks.filter((t: any) => (t.timerRunning || t.timerElapsed > 0) && t.responsibleId === user.id).sort((a: any, b: any) => b.timerRunning - a.timerRunning);
   return (
     <div className="flex flex-col h-full fade-in">
       <p className="text-sm text-neutral-400 mb-8 text-center max-w-lg mx-auto">Inicie o cronômetro diretamente num card do painel principal para acompanhar o tempo de execução aqui.</p>
@@ -1404,7 +1345,7 @@ function TimerPanelContent({ tasks, now, getElapsed, onToggleTimer, user }) {
             Nenhuma tarefa ativa neste momento.
           </div>
         )}
-        {activeTasks.map(t => {
+        {activeTasks.map((t: any) => {
           const isDoneOrCancelled = t.status === "done" || t.status === "cancelled" || t.status === "formalize";
           return (
             <div key={t.id} className="bg-[#12121a] border border-[#27272a] rounded-3xl p-6 flex flex-col items-center text-center relative overflow-hidden group hover:border-[#3f3f46] transition-colors shadow-sm">
@@ -1433,7 +1374,7 @@ function TimerPanelContent({ tasks, now, getElapsed, onToggleTimer, user }) {
   );
 }
 
-function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTasks, user }) {
+function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTasks, user }: any) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   
@@ -1449,10 +1390,10 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
     }
   };
 
-  const remove = async (id) => { 
+  const remove = async (id: string) => { 
     if(!user.isAdmin && id !== user.id) return alert("Não tem permissão para apagar contas.");
-    setResponsibles(prev => prev.filter(r => r.id !== id)); 
-    setTasks(prev => prev.map(t => t.responsibleId === id ? { ...t, responsibleId: '' } : t)); 
+    setResponsibles((prev: any) => prev.filter((r: any) => r.id !== id)); 
+    setTasks((prev: any) => prev.map((t: any) => t.responsibleId === id ? { ...t, responsibleId: '' } : t)); 
     if (window.supabaseClient) {
       await window.supabaseClient.from('responsibles').delete().eq('id', id.toString());
     }
@@ -1475,8 +1416,8 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {responsibles.map(r => {
-          const count = tasks.filter(t => t.responsibleId === r.id).length;
+        {responsibles.map((r: any) => {
+          const count = tasks.filter((t: any) => t.responsibleId === r.id).length;
           return (
             <div key={r.id} className="flex items-center justify-between gap-4 bg-[#12121a] border border-[#27272a] rounded-2xl p-5 group hover:border-indigo-500/50 transition-all shadow-sm">
               <div className="flex items-center gap-4">
@@ -1499,29 +1440,29 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
   );
 }
 
-function ClientModal({ modal, setModal, setClients }) {
+function ClientModal({ modal, setModal, setClients }: any) {
   const [form, setForm] = useState(modal.form);
   const [newEmail, setNewEmail] = useState("");
-  const [validationError, setValidationError] = useState(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleAddEmail = () => {
     if (!newEmail.trim()) return;
     if (!newEmail.includes("@")) { setValidationError("Insira um e-mail válido."); return; }
-    setForm(prev => ({ ...prev, emails: [...(prev.emails || []), newEmail.trim()] }));
+    setForm((prev: any) => ({ ...prev, emails: [...(prev.emails || []), newEmail.trim()] }));
     setNewEmail(""); setValidationError(null);
   };
 
-  const handleRemoveEmail = (index) => { setForm(prev => ({ ...prev, emails: (prev.emails || []).filter((_, i) => i !== index) })); };
+  const handleRemoveEmail = (index: number) => { setForm((prev: any) => ({ ...prev, emails: (prev.emails || []).filter((_: any, i: number) => i !== index) })); };
 
   const saveClient = () => {
     if (!form.name || !form.name.trim()) { setValidationError("O nome do cliente é obrigatório."); return; }
-    if (modal.mode === "add") { setClients(prev => [...prev, { ...form, id: 'c' + Date.now() }]); } else { setClients(prev => prev.map(c => c.id === form.id ? form : c)); }
+    if (modal.mode === "add") { setClients((prev: any) => [...prev, { ...form, id: 'c' + Date.now() }]); } else { setClients((prev: any) => prev.map((c: any) => c.id === form.id ? form : c)); }
     setModal(null);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[70] fade-in">
-      <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[70] fade-in" onClick={() => setModal(null)}>
+      <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col shadow-2xl overflow-hidden animate-modal-pop" onClick={(e) => e.stopPropagation()}>
         <div className="px-8 py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
           <h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
           <button onClick={() => setModal(null)} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button>
@@ -1547,7 +1488,7 @@ function ClientModal({ modal, setModal, setClients }) {
 
             <div className="flex flex-col gap-2 max-h-32 overflow-y-auto kp-scroll pr-1">
               {(!form.emails || form.emails.length === 0) && <div className="text-center text-xs text-neutral-600 py-6 border border-dashed border-[#27272a] rounded-2xl">Nenhum e-mail adicionado.</div>}
-              {form.emails && form.emails.map((email, index) => (
+              {form.emails && form.emails.map((email: string, index: number) => (
                 <div key={index} className="flex items-center justify-between bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3">
                   <div className="flex items-center gap-3 text-sm text-neutral-300"><Mail size={16} className="text-purple-400" /> {email}</div>
                   <button onClick={() => handleRemoveEmail(index)} className="p-2 text-neutral-500 hover:text-red-500 transition-colors"><X size={16} /></button>
@@ -1572,20 +1513,20 @@ function ClientModal({ modal, setModal, setClients }) {
   );
 }
 
-function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getElapsed, now }) {
-  const [clientModal, setClientModal] = useState(null);
+function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getElapsed, now }: any) {
+  const [clientModal, setClientModal] = useState<any>(null);
 
   const openAdd = () => setClientModal({ mode: 'add', form: { name: '', emails: [], contractedHours: '' } });
   
-  const openEdit = (client) => {
+  const openEdit = (client: any) => {
     const emailsArray = Array.isArray(client.emails) ? client.emails : [];
     setClientModal({ mode: 'edit', form: { ...client, emails: emailsArray } });
   };
 
-  const remove = async (id) => { 
+  const remove = async (id: string) => { 
     if(!user.isAdmin) return alert("Apenas administradores podem remover clientes.");
-    setClients(prev => prev.filter(c => c.id !== id)); 
-    setTasks(prev => prev.map(t => t.clientId === id ? { ...t, clientId: '' } : t)); 
+    setClients((prev: any) => prev.filter((c: any) => c.id !== id)); 
+    setTasks((prev: any) => prev.map((t: any) => t.clientId === id ? { ...t, clientId: '' } : t)); 
     if (window.supabaseClient) {
       await window.supabaseClient.from('clients').delete().eq('id', id.toString());
     }
@@ -1607,12 +1548,12 @@ function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getEl
             A sua carteira de clientes está vazia.
           </div>
         )}
-        {clients.map(c => {
-          const count = tasks.filter(t => t.clientId === c.id).length;
+        {clients.map((c: any) => {
+          const count = tasks.filter((t: any) => t.clientId === c.id).length;
           const emailsArray = Array.isArray(c.emails) ? c.emails : [];
           
-          const cTasks = tasks.filter(t => t.clientId === c.id);
-          const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
+          const cTasks = tasks.filter((t: any) => t.clientId === c.id);
+          const hours = cTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0);
           const remaining = c.contractedHours ? c.contractedHours - hours : null;
           const isNearLimit = remaining !== null && remaining <= 5;
           
@@ -1629,7 +1570,7 @@ function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getEl
               </div>
               
               <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3">
-                {isNearLimit && (
+                {isNearLimit && remaining !== null && (
                   <a href={generateLimitEmailLink(c, hours)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-5 py-3.5 sm:py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-colors shrink-0 shadow-sm">
                     <AlertTriangle size={14}/> Aviso ({remaining.toFixed(1)}h)
                   </a>
@@ -1649,7 +1590,7 @@ function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getEl
   );
 }
 
-function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed, isClosing }) {
+function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed, isClosing }: any) {
   const [activeView, setActiveView] = useState('internal'); 
   const [url, setUrl] = useState(localStorage.getItem('lumina_looker_url') || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -1667,9 +1608,9 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
 
   const exportTasksCSV = () => {
     const headers = ["ID", "Título", "Status", "Prioridade", "Cliente", "Responsável", "Estimado (min)", "Gasto (h)"];
-    const rows = tasks.map(t => {
-      const clientName = clients.find(c => c.id === t.clientId)?.name || '-';
-      const respName = responsibles.find(r => r.id === t.responsibleId)?.name || '-';
+    const rows = tasks.map((t: any) => {
+      const clientName = clients.find((c: any) => c.id === t.clientId)?.name || '-';
+      const respName = responsibles.find((r: any) => r.id === t.responsibleId)?.name || '-';
       const statusName = COLUMNS.find(c => c.id === t.status)?.name || t.status;
       const elapsedH = (getElapsed(t) / 3600).toFixed(2);
       return [t.id, `"${String(t.title || '').replace(/"/g, '""')}"`, statusName, t.priority, `"${clientName}"`, `"${respName}"`, t.durationMin || 0, elapsedH].join(',');
@@ -1693,9 +1634,9 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
         {activeView === 'internal' && (
            <div className="flex flex-col gap-8 fade-in h-full">
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Fase do Fluxo</h3><div className="flex flex-col gap-3">{COLUMNS.map(col => { const count = tasks.filter(t => t.status === col.id).length; return (<div key={col.id} className="flex justify-between items-center bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="flex items-center gap-4"><span className={`w-3 h-3 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} /><span className="text-xs text-neutral-300 font-bold uppercase">{col.name}</span></div><span className="text-lg font-black text-white">{count}</span></div>)})}</div></div>
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Responsável</h3><div className="flex flex-col gap-3">{responsibles.map(r => { const rTasks = tasks.filter(t => t.responsibleId === r.id); const hours = rTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={r.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{r.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{rTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Cliente</h3><div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto kp-scroll pr-2">{clients.map(c => { const cTasks = tasks.filter(t => t.clientId === c.id); if (cTasks.length === 0) return null; const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={c.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{c.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{cTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Fase do Fluxo</h3><div className="flex flex-col gap-3">{COLUMNS.map(col => { const count = tasks.filter((t: any) => t.status === col.id).length; return (<div key={col.id} className="flex justify-between items-center bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="flex items-center gap-4"><span className={`w-3 h-3 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} /><span className="text-xs text-neutral-300 font-bold uppercase">{col.name}</span></div><span className="text-lg font-black text-white">{count}</span></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Responsável</h3><div className="flex flex-col gap-3">{responsibles.map((r: any) => { const rTasks = tasks.filter((t: any) => t.responsibleId === r.id); const hours = rTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0); return (<div key={r.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{r.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{rTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Cliente</h3><div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto kp-scroll pr-2">{clients.map((c: any) => { const cTasks = tasks.filter((t: any) => t.clientId === c.id); if (cTasks.length === 0) return null; const hours = cTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0); return (<div key={c.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{c.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{cTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
              </div>
              <div className="flex justify-center mt-auto pt-8 border-t border-[#27272a]">
                 <button onClick={exportTasksCSV} className="w-full md:w-auto flex items-center justify-center gap-2 px-10 py-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all shadow-sm"><Download size={18}/> Baixar Dados (CSV)</button>
@@ -1741,7 +1682,7 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
   )
 }
 
-function generateLimitEmailLink(clientData, consumedHours) {
+function generateLimitEmailLink(clientData: any, consumedHours: number) {
   const emails = Array.isArray(clientData?.emails) ? clientData.emails : [];
   const emailTo = emails.join(',');
   const subject = `Aviso de Banco de Horas - ${clientData.name}`;
@@ -1752,14 +1693,14 @@ function generateLimitEmailLink(clientData, consumedHours) {
   return `https://mail.google.com/mail/?view=cm&fs=1&to=${emailTo}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
-  const [copiedId, setCopiedId] = useState(null);
-  const [copiedNotionId, setCopiedNotionId] = useState(null);
-  const [meetingData, setMeetingData] = useState({});
+function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }: any) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedNotionId, setCopiedNotionId] = useState<string | null>(null);
+  const [meetingData, setMeetingData] = useState<any>({});
 
-  // Separação Inteligente: Finalizadas vs Andamento (Excluindo Backlog, Cancelados e Todo da prop 'tasks' já filtrada)
+  // Separação Inteligente: Finalizadas vs Andamento
   const tasksByClient = useMemo(() => {
-    return tasks.reduce((acc, task) => {
+    return tasks.reduce((acc: any, task: any) => {
       const cId = task.clientId || 'no_client';
       if (!acc[cId]) acc[cId] = { done: [], inProgress: [] };
       if (task.status === 'done' || task.status === 'formalize') {
@@ -1771,7 +1712,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
     }, {});
   }, [tasks]);
 
-  const generateEmailText = (clientTasks, mData) => {
+  const generateEmailText = (clientTasks: any, mData: any) => {
     let body = `Prezados(as),\n\nEspero que se encontrem bem.\n\n`;
     
     let dateStr = "";
@@ -1791,7 +1732,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
 
     if (clientTasks.done.length > 0) {
       body += `Demandas Finalizadas:\n`;
-      clientTasks.done.forEach(t => {
+      clientTasks.done.forEach((t: any) => {
         body += `- ${t.title}\n`;
         if (t.description) body += `  ${t.description}\n`;
         body += `\n`;
@@ -1800,7 +1741,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
 
     if (clientTasks.inProgress.length > 0) {
       body += `Demandas em Andamento:\n`;
-      clientTasks.inProgress.forEach(t => {
+      clientTasks.inProgress.forEach((t: any) => {
         body += `- ${t.title}\n`;
         if (t.description) body += `  ${t.description}\n`;
         body += `\n`;
@@ -1811,7 +1752,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
     return body;
   };
 
-  const generateEmailLink = (clientTasks, clientData, mData) => {
+  const generateEmailLink = (clientTasks: any, clientData: any, mData: any) => {
     const emails = Array.isArray(clientData?.emails) ? clientData.emails : [];
     const emailTo = emails.join(',');
     const subject = `Atualização Semanal de Demandas - ${clientData ? clientData.name : 'Cliente'}`;
@@ -1820,18 +1761,18 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
     return `https://mail.google.com/mail/?view=cm&fs=1&to=${emailTo}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  const handleCopyText = (clientTasks, clientId, mData) => {
+  const handleCopyText = (clientTasks: any, clientId: string, mData: any) => {
     const text = generateEmailText(clientTasks, mData);
     navigator.clipboard.writeText(text);
     setCopiedId(clientId);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleCopyNotion = (clientTasks, clientId) => {
+  const handleCopyNotion = (clientTasks: any, clientId: string) => {
     let text = "";
     if (clientTasks.done.length > 0) {
       text += "CONCLUÍDAS\n\n";
-      clientTasks.done.forEach(t => {
+      clientTasks.done.forEach((t: any) => {
         const timeMin = t.timerElapsed > 0 ? Math.round(t.timerElapsed / 60) : (t.durationMin || 0);
         const dateStr = t.dueDate ? t.dueDate.split('-').reverse().join('/') : 'Sem data';
         text += `- ${t.title}\n  Descrição: ${t.description || 'Sem descrição'}\n  Tempo: ${timeMin} min\n  Data: ${dateStr}\n\n`;
@@ -1839,7 +1780,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
     }
     if (clientTasks.inProgress.length > 0) {
       text += "EM ANDAMENTO\n\n";
-      clientTasks.inProgress.forEach(t => {
+      clientTasks.inProgress.forEach((t: any) => {
         const timeMin = t.timerElapsed > 0 ? Math.round(t.timerElapsed / 60) : (t.durationMin || 0);
         const dateStr = t.dueDate ? t.dueDate.split('-').reverse().join('/') : 'Sem data';
         text += `- ${t.title}\n  Descrição: ${t.description || 'Sem descrição'}\n  Tempo: ${timeMin} min\n  Data: ${dateStr}\n\n`;
@@ -1851,8 +1792,8 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[80] fade-in">
-      <div className="w-full max-w-4xl rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[80] fade-in" onClick={onClose}>
+      <div className="w-full max-w-4xl rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
         
         <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
           <div className="flex items-center gap-4">
@@ -1874,11 +1815,10 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
              </div>
           )}
 
-          {Object.entries(tasksByClient).map(([clientId, clientTasks]) => {
-            // Só renderiza cliente se ele tiver realmente alguma tarefa no andamento ou finalizada
+          {Object.entries(tasksByClient).map(([clientId, clientTasks]: any) => {
             if (clientTasks.done.length === 0 && clientTasks.inProgress.length === 0) return null;
 
-            const clientData = clients.find(c => c.id === clientId);
+            const clientData = clients.find((c: any) => c.id === clientId);
             const clientName = clientData ? clientData.name : 'Sem Cliente Atribuído';
             const mData = meetingData[clientId] || { date: '', link: '' };
             const totalTasksCount = clientTasks.done.length + clientTasks.inProgress.length;
@@ -1920,7 +1860,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
                   {clientTasks.done.length > 0 && (
                     <div className="mb-5">
                       <strong className="text-emerald-400 uppercase tracking-widest text-[10px] block mb-3 border-b border-emerald-500/20 pb-2">Demandas Finalizadas:</strong>
-                      {clientTasks.done.map(t => (
+                      {clientTasks.done.map((t: any) => (
                         <div key={t.id} className="mt-2 pl-2 border-l-2 border-emerald-500/30">
                           <div className="text-neutral-200 font-bold">- {t.title}</div>
                           {t.description && <div className="pl-3 opacity-60 line-clamp-2 mt-1 leading-relaxed text-[11px]">{t.description}</div>}
@@ -1931,7 +1871,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
                   {clientTasks.inProgress.length > 0 && (
                     <div className="mb-2">
                       <strong className="text-indigo-400 uppercase tracking-widest text-[10px] block mb-3 border-b border-indigo-500/20 pb-2">Demandas em Andamento:</strong>
-                      {clientTasks.inProgress.map(t => (
+                      {clientTasks.inProgress.map((t: any) => (
                         <div key={t.id} className="mt-2 pl-2 border-l-2 border-indigo-500/30">
                           <div className="text-neutral-200 font-bold">- {t.title}</div>
                           {t.description && <div className="pl-3 opacity-60 line-clamp-2 mt-1 leading-relaxed text-[11px]">{t.description}</div>}
@@ -1995,21 +1935,21 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
   );
 }
 
-function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveModal, validationError, setValidationError }) {
-  const updateForm = (patch) => { setModal(m => ({ ...m, form: { ...m.form, ...patch } })); if (validationError) setValidationError(null); };
-  const addChecklistRow = () => { setModal(m => ({ ...m, form: { ...m.form, checklist: [...(m.form.checklist || []), { id: nextId(), text: "", done: false }] } })); };
+function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveModal, validationError, setValidationError }: any) {
+  const updateForm = (patch: any) => { setModal((m: any) => ({ ...m, form: { ...m.form, ...patch } })); if (validationError) setValidationError(null); };
+  const addChecklistRow = () => { setModal((m: any) => ({ ...m, form: { ...m.form, checklist: [...(m.form.checklist || []), { id: nextId(), text: "", done: false }] } })); };
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[85] fade-in">
-      <div className="w-full max-w-xl rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[95vh] sm:max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[85] fade-in" onClick={closeModal}>
+      <div className="w-full max-w-xl rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[95vh] sm:max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
         <div className="px-6 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]"><h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Nova Demanda" : "Editar Demanda"}</h3><button onClick={closeModal} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button></div>
         <div className="p-6 sm:p-8 overflow-y-auto kp-scroll flex flex-col gap-6 bg-[#09090b]">
           <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Título do Card *</label><input autoFocus value={modal.form.title || ''} onChange={(e) => updateForm({ title: e.target.value })} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all ${validationError && String(validationError).includes("Título") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Ex: Ajustar Fluxo de E-mails..." /></div>
           <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Contexto / Descrição *</label><textarea value={modal.form.description || ''} onChange={(e) => updateForm({ description: e.target.value })} rows={4} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 resize-none transition-all ${validationError && String(validationError).includes("Descrição") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Descreva os requisitos técnicos ou regras de negócio..." /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Prioridade *" required hasError={validationError && String(validationError).includes("Prioridade")} value={modal.form.priority || ''} onChange={(e) => updateForm({ priority: e.target.value })} options={<><option value="">Selecione...</option><option value="Baixa">Baixa</option><option value="Média">Média</option><option value="Alta">Alta</option></>} /><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Est. Minutos</label><input type="number" value={modal.form.durationMin ?? ''} onChange={(e) => updateForm({ durationMin: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 shadow-sm" placeholder="Ex: 60" /></div></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Responsável *" required hasError={validationError && String(validationError).includes("Responsável")} value={modal.form.responsibleId || ''} onChange={(e) => updateForm({ responsibleId: e.target.value })} options={<><option value="">Selecione a pessoa...</option>{responsibles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</>} /><CustomSelect label="Cliente *" required hasError={validationError && String(validationError).includes("Cliente")} value={modal.form.clientId || ''} onChange={(e) => updateForm({ clientId: e.target.value })} options={<><option value="">Selecione a empresa...</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Prazo/Deadline</label><input type="date" value={modal.form.dueDate || ''} onChange={(e) => updateForm({ dueDate: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark] shadow-sm" /></div><CustomSelect label="Fase do Fluxo *" required hasError={validationError && String(validationError).includes("Fase")} value={modal.form.status || ''} onChange={(e) => updateForm({ status: e.target.value, waitingFor: e.target.value === 'waiting' ? modal.form.waitingFor : "" })} options={<><option value="">Selecionar...</option>{COLUMNS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
-          {modal.form.status === 'waiting' && <div className="animate-fade-in"><CustomSelect label="Dependência *" required hasError={validationError && String(validationError).includes("Dependência")} value={modal.form.waitingFor || ''} onChange={(e) => updateForm({ waitingFor: e.target.value })} options={<><option value="">Pendente de quem?</option><option value="Cliente">Cliente</option><option value="Time Interno">Time Interno</option></>} /></div>}
-          <div className="mt-2"><div className="flex items-center justify-between mb-3"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 ml-1">Checklist de Passos</label><button onClick={addChecklistRow} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors p-1 flex items-center gap-1"><Plus size={12}/> Adicionar Passo</button></div><div className="flex flex-col gap-3">{(modal.form.checklist || []).map((c) => (<div key={c.id} className="flex items-center gap-3"><button onClick={() => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, done: !ci.done } : ci) } })); }} className={`p-2.5 border rounded-xl transition-all shrink-0 ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-[#12121a] border-[#27272a] text-neutral-700 hover:text-neutral-500 hover:bg-white/5'}`}><Check size={16}/></button><input value={c.text || ''} onChange={(e) => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, text: e.target.value } : ci) } })); }} className="flex-1 bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all shadow-sm" placeholder="O que precisa ser feito?" /><button onClick={() => setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.filter(ci => ci.id !== c.id) } }))} className="p-2.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"><X size={18} /></button></div>))}</div></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Prioridade *" required hasError={validationError && String(validationError).includes("Prioridade")} value={modal.form.priority || ''} onChange={(e: any) => updateForm({ priority: e.target.value })} options={<><option value="">Selecione...</option><option value="Baixa">Baixa</option><option value="Média">Média</option><option value="Alta">Alta</option></>} /><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Est. Minutos</label><input type="number" value={modal.form.durationMin ?? ''} onChange={(e) => updateForm({ durationMin: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 shadow-sm" placeholder="Ex: 60" /></div></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Responsável *" required hasError={validationError && String(validationError).includes("Responsável")} value={modal.form.responsibleId || ''} onChange={(e: any) => updateForm({ responsibleId: e.target.value })} options={<><option value="">Selecione a pessoa...</option>{responsibles.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}</>} /><CustomSelect label="Cliente *" required hasError={validationError && String(validationError).includes("Cliente")} value={modal.form.clientId || ''} onChange={(e: any) => updateForm({ clientId: e.target.value })} options={<><option value="">Selecione a empresa...</option>{clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Prazo/Deadline</label><input type="date" value={modal.form.dueDate || ''} onChange={(e) => updateForm({ dueDate: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark] shadow-sm" /></div><CustomSelect label="Fase do Fluxo *" required hasError={validationError && String(validationError).includes("Fase")} value={modal.form.status || ''} onChange={(e: any) => updateForm({ status: e.target.value, waitingFor: e.target.value === 'waiting' ? modal.form.waitingFor : "" })} options={<><option value="">Selecionar...</option>{COLUMNS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
+          {modal.form.status === 'waiting' && <div className="animate-fade-in"><CustomSelect label="Dependência *" required hasError={validationError && String(validationError).includes("Dependência")} value={modal.form.waitingFor || ''} onChange={(e: any) => updateForm({ waitingFor: e.target.value })} options={<><option value="">Pendente de quem?</option><option value="Cliente">Cliente</option><option value="Time Interno">Time Interno</option></>} /></div>}
+          <div className="mt-2"><div className="flex items-center justify-between mb-3"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 ml-1">Checklist de Passos</label><button onClick={addChecklistRow} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors p-1 flex items-center gap-1"><Plus size={12}/> Adicionar Passo</button></div><div className="flex flex-col gap-3">{(modal.form.checklist || []).map((c: any) => (<div key={c.id} className="flex items-center gap-3"><button onClick={() => { setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map((ci: any) => ci.id === c.id ? { ...ci, done: !ci.done } : ci) } })); }} className={`p-2.5 border rounded-xl transition-all shrink-0 ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-[#12121a] border-[#27272a] text-neutral-700 hover:text-neutral-500 hover:bg-white/5'}`}><Check size={16}/></button><input value={c.text || ''} onChange={(e) => { setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map((ci: any) => ci.id === c.id ? { ...ci, text: e.target.value } : ci) } })); }} className="flex-1 bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all shadow-sm" placeholder="O que precisa ser feito?" /><button onClick={() => setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.filter((ci: any) => ci.id !== c.id) } }))} className="p-2.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"><X size={18} /></button></div>))}</div></div>
         </div>
         <div className="px-6 sm:px-8 py-5 border-t border-[#27272a] flex flex-col sm:flex-row items-center justify-end gap-3 bg-[#0f0f13]"><button onClick={closeModal} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors">Cancelar</button><button onClick={saveModal} className="w-full sm:w-auto text-xs font-black uppercase tracking-[0.15em] px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)]">Salvar Demanda</button></div>
       </div>
