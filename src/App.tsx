@@ -321,7 +321,7 @@ function KanbanMain({ user, setUser, onLogout }) {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Monitora se está em Mobile para desativar o arrasto e permitir Scroll nativo
+  // Monitora se está em Mobile para desativar o arrasto
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -464,7 +464,7 @@ function KanbanMain({ user, setUser, onLogout }) {
   const doneCount = visibleTasks.filter((t) => t.status === "done" || t.status === "formalize").length;
   const overallProgress = activeTasksCount ? Math.round((doneCount / activeTasksCount) * 100) : 0;
   
-  // Para fechamento, pegamos todas as demandas ativas (tirando backlog, a fazer e canceladas)
+  // Para fechamento, pegamos todas as demandas ativas
   const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done', 'formalize'].includes(t.status));
 
   const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, dueDate: "", status: "", waitingFor: "", checklist: [] };
@@ -784,7 +784,6 @@ function KanbanMain({ user, setUser, onLogout }) {
 
         .glass-panel { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
 
-        /* LINHA NOVA ADICIONADA ABAIXO */
         .kp-scroll { -webkit-overflow-scrolling: touch; }
       `}</style>
 
@@ -908,12 +907,12 @@ function KanbanMain({ user, setUser, onLogout }) {
           </div>
 
           {/* Quadro Kanban (Scroll Horizontal e Vertical Nativo) */}   
-          <div className="flex-1 overflow-x-auto px-4 md:px-8 pb-4 md:pb-8 kp-scroll min-h-0">
-            <div className="flex gap-4 sm:gap-5 h-full min-w-max items-start">
+          <div className="flex-1 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll min-h-0">
+            <div className="flex gap-4 sm:gap-5 h-full min-w-max">
               {COLUMNS.map((col) => {
                 const colTasks = filteredTasks.filter((t) => t.status === col.id);
                 return (
-                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col h-full max-h-full shadow-sm">
+                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col h-full shadow-sm">
                     
                     {/* Header da Coluna */}
                     <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5 shrink-0">
@@ -931,8 +930,12 @@ function KanbanMain({ user, setUser, onLogout }) {
                       </button>
                     </div>
                     
-                    {/* Área de Cartões com scroll nativo otimizado */}     
-                    <ColumnCardsList isMobile={isMobile} col={col} handleRequestMove={handleRequestMove}>
+                    {/* Área de Cartões - Rolagem Nativa Fluida */}     
+                    <div 
+                      className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll overscroll-y-contain flex flex-col gap-3 mt-3 min-h-0"
+                      onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
+                      onDrop={(e) => { if (!isMobile) { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); } }}
+                    >
                       {colTasks.length === 0 && (
                         <div className="text-center text-[10px] font-medium uppercase tracking-widest text-neutral-600 py-10 border border-dashed border-white/5 rounded-xl mx-2">
                           Solte itens aqui
@@ -1036,7 +1039,7 @@ function KanbanMain({ user, setUser, onLogout }) {
                           </div>
                         );
                       })}
-                    </ColumnCardsList>
+                    </div>
                   </div>
                 );
               })}
@@ -1315,71 +1318,6 @@ function CustomSelect({ label, value, onChange, options, hasError, required }) {
         </select>
         <ChevronDown size={16} className="absolute right-4 text-neutral-600 pointer-events-none" />
       </div>
-    </div>
-  );
-}
-
-// --- Componente Auxiliar para Scroll das Colunas no Mobile ---
-function ColumnCardsList({ children, isMobile, col, handleRequestMove }) {
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    let startX = 0;
-    let startY = 0;
-    let locked = null;
-
-    const onTouchStart = (e) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      locked = null;
-    };
-
-    const onTouchMove = (e) => {
-      const dx = Math.abs(e.touches[0].clientX - startX);
-      const dy = Math.abs(e.touches[0].clientY - startY);
-
-      // Decide a direção na primeira movimentação significativa
-      if (!locked && (dx > 4 || dy > 4)) {
-        locked = dy > dx ? 'vertical' : 'horizontal';
-      }
-
-      // Se for vertical, previne o pai de roubar o scroll
-      if (locked === 'vertical') {
-        e.stopPropagation();
-      }
-    };
-
-    // passive:true mantém performance nativa no iOS
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: true });
-
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-    };
-  }, []);
-
-  return (
-    <div
-      ref={scrollRef}
-      className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0"
-      style={{
-        overscrollBehavior: 'contain',
-        WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y',
-      }}
-      onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
-      onDrop={(e) => {
-        if (!isMobile) {
-          e.preventDefault();
-          handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id);
-        }
-      }}
-    >
-      {children}
     </div>
   );
 }
