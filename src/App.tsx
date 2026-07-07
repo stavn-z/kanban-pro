@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Plus, Pencil, Timer as TimerIcon, Trash2, X, Clock, 
   Users, Building2, BarChart3, LogOut, RotateCcw, 
   Filter, AlertTriangle, GripVertical, Download, 
   Play, Square, CheckCircle2, User, CheckSquare,
   HelpCircle, ChevronDown, LayoutDashboard, Mail, Check, Copy, ClipboardList, Cloud, Lock,
-  Eye, EyeOff, ExternalLink, Settings, MonitorPlay
+  Eye, EyeOff, ExternalLink, Settings, MonitorPlay, CloudRain, Sun, Moon, CloudLightning, Snowflake, CloudFog, Camera, UserCog, Calendar
 } from "lucide-react";
 
 // ==========================================
@@ -40,6 +40,70 @@ function downloadCSV(dataArray, filename) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// --- Componente de Top Widgets (Data, Hora e Clima Real) ---
+function TopWidgets() {
+  const [dateStr, setDateStr] = useState('');
+  const [timeStr, setTimeStr] = useState('');
+  const [weather, setWeather] = useState({ temp: '--', desc: 'A carregar...', Icon: Cloud, color: 'text-neutral-500' });
+
+  useEffect(() => {
+    const updateTime = () => {
+       const now = new Date();
+       const formatterDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+       const formatterTime = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
+       setDateStr(formatterDate.format(now));
+       setTimeStr(formatterTime.format(now));
+    };
+    updateTime();
+    const id = setInterval(updateTime, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const fetchWeather = async (lat, lon) => {
+      try {
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+        const data = await res.json();
+        const cw = data.current_weather;
+        
+        let desc = "Tempo limpo"; let Icon = cw.is_day ? Sun : Moon; let color = cw.is_day ? "text-amber-400" : "text-indigo-200";
+        if (cw.weathercode === 1 || cw.weathercode === 2 || cw.weathercode === 3) { desc = "Nublado"; Icon = Cloud; color = "text-neutral-300"; }
+        else if (cw.weathercode === 45 || cw.weathercode === 48) { desc = "Nevoeiro"; Icon = CloudFog; color = "text-neutral-400"; }
+        else if (cw.weathercode >= 51 && cw.weathercode <= 67) { desc = "Chuvoso"; Icon = CloudRain; color = "text-blue-400"; }
+        else if (cw.weathercode >= 71 && cw.weathercode <= 77) { desc = "Neve"; Icon = Snowflake; color = "text-white"; }
+        else if (cw.weathercode >= 80 && cw.weathercode <= 82) { desc = "Pancadas de chuva"; Icon = CloudRain; color = "text-blue-400"; }
+        else if (cw.weathercode >= 95 && cw.weathercode <= 99) { desc = "Tempestade"; Icon = CloudLightning; color = "text-purple-400"; }
+
+        setWeather({ temp: Math.round(cw.temperature), desc, Icon, color });
+      } catch (e) { console.error("Erro no clima", e); }
+    };
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+        () => fetchWeather(-19.9167, -43.9345) // Fallback: Belo Horizonte, MG
+      );
+    } else {
+      fetchWeather(-19.9167, -43.9345);
+    }
+  }, []);
+
+  return (
+    <div className="flex items-center gap-3">
+       <div className="hidden sm:flex items-center gap-2 bg-[#12121a] border border-[#27272a] px-3.5 py-1.5 rounded-full text-xs font-medium text-neutral-400 shadow-sm transition-all hover:bg-white/5 cursor-default">
+          <weather.Icon size={14} className={weather.color} />
+          <span>{weather.temp}°C {weather.desc}</span>
+       </div>
+       <div className="flex items-center gap-2 bg-[#12121a] border border-[#27272a] px-3.5 py-1.5 rounded-full text-xs font-medium text-neutral-400 shadow-sm cursor-default">
+          <Calendar size={14} className="text-indigo-400" />
+          <span className="capitalize">{dateStr}</span>
+          <span className="opacity-30">|</span>
+          <span className="text-white font-bold">{timeStr}</span>
+       </div>
+    </div>
+  )
 }
 
 // --- Componente de Login ---
@@ -90,14 +154,14 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f1015] flex items-center justify-center p-4">
-      <div className="bg-[#161821] p-8 rounded-3xl border border-[#2a2d3d] w-full max-w-sm shadow-2xl animate-modal-pop">
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4">
+      <div className="bg-[#12121a] p-8 rounded-[32px] border border-[#27272a] w-full max-w-sm shadow-[0_0_50px_rgba(79,70,229,0.05)] animate-modal-pop">
         <div className="flex flex-col items-center justify-center gap-4 mb-8">
           <div className="w-24 h-24 rounded-[22px] bg-black flex items-center justify-center border border-white/5 overflow-hidden shadow-2xl">
             <img src="/apple-icon.png" alt="Lumina Logo" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-b from-white to-neutral-400 bg-clip-text text-transparent">Lumina</h1>
-          <p className="text-neutral-500 text-xs uppercase tracking-[0.2em] font-medium">Kanban & Analytics</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Lumina</h1>
+          <p className="text-indigo-400/80 text-xs uppercase tracking-[0.2em] font-medium">Kanban & Analytics</p>
         </div>
 
         {error && (
@@ -108,21 +172,21 @@ function LoginScreen({ onLogin }) {
 
         <div className="space-y-4">
           <div>
-            <label className="text-[11px] font-medium uppercase text-neutral-400 mb-1.5 block ml-1">Usuário</label>
+            <label className="text-[11px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Usuário</label>
             <input 
               autoFocus
-              className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500 transition-colors" 
+              className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" 
               placeholder="Digite o seu nome" 
               value={name || ''} 
               onChange={e => setName(e.target.value)}
             />
           </div>
           <div>
-            <label className="text-[11px] font-medium uppercase text-neutral-400 mb-1.5 block ml-1">Senha</label>
+            <label className="text-[11px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Senha</label>
             <div className="relative">
               <input 
                 type={showPassword ? "text" : "password"}
-                className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 pr-10 text-sm text-white outline-none focus:border-indigo-500 transition-colors" 
+                className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 pr-10 text-sm text-white outline-none focus:border-indigo-500 transition-colors" 
                 placeholder="Sua senha secreta" 
                 value={password || ''} 
                 onChange={e => setPassword(e.target.value)}
@@ -139,7 +203,7 @@ function LoginScreen({ onLogin }) {
           </div>
           <button 
             disabled={!name.trim() || !password || loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3.5 font-bold transition-all shadow-lg shadow-indigo-600/20 flex justify-center items-center gap-2 mt-2" 
+            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-4 font-bold tracking-wide transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] flex justify-center items-center gap-2 mt-4" 
             onClick={handleLoginSubmit}
           >
             {loading ? <Cloud size={18} className="animate-pulse" /> : 'Entrar no Sistema'}
@@ -194,11 +258,11 @@ export default function App() {
 
   if (!supabaseReady) {
     return (
-      <div className="min-h-screen bg-[#0f1015] flex flex-col items-center justify-center p-4 text-center">
-        <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 animate-pulse shadow-2xl animate-modal-pop">
+      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 animate-pulse shadow-[0_0_30px_rgba(79,70,229,0.1)]">
           <img src="/apple-icon.png" alt="Lumina" className="w-full h-full object-cover" />
         </div>
-        <div className="text-neutral-400 font-medium animate-pulse text-sm">A conectar ao Lumina Cloud...</div>
+        <div className="text-indigo-500 font-bold uppercase tracking-widest animate-pulse text-xs">Conectando...</div>
       </div>
     );
   }
@@ -207,20 +271,20 @@ export default function App() {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  return <KanbanMain user={user} onLogout={handleLogout} />;
+  return <KanbanMain user={user} setUser={setUser} onLogout={handleLogout} />;
 }
 
 // --- Definição das Colunas e Estilos ---
 const COLUMNS = [
-    { id: "backlog", name: "Backlog", dot: "bg-indigo-500", accent: "border-indigo-500", bg: "bg-indigo-500/10", btn: "bg-indigo-600 hover:bg-indigo-500", help: "Ideias e novas demandas ainda não priorizadas." },
-    { id: "todo", name: "A Fazer", dot: "bg-amber-500", accent: "border-amber-500", bg: "bg-amber-500/10", btn: "bg-amber-500 hover:bg-amber-400 text-black", help: "Priorizadas e prontas para iniciar." },
-    { id: "inprogress", name: "Em Andamento", dot: "bg-blue-500", accent: "border-blue-500", bg: "bg-blue-500/10", btn: "bg-blue-600 hover:bg-blue-500", help: "Demandas ativas no momento." },
-    { id: "paused", name: "Pausado", dot: "bg-orange-500", accent: "border-orange-500", bg: "bg-orange-500/10", btn: "bg-orange-600 hover:bg-orange-500", help: "Demandas temporariamente interrompidas." },
-    { id: "waiting", name: "Aguardando", dot: "bg-pink-500", accent: "border-pink-500", bg: "bg-pink-500/10", btn: "bg-pink-600 hover:bg-pink-500", help: "Aguardando resposta do cliente ou equipe." },
-    { id: "review", name: "Em Revisão", dot: "bg-purple-500", accent: "border-purple-500", bg: "bg-purple-500/10", btn: "bg-purple-600 hover:bg-purple-500", help: "Concluídas aguardando aprovação." },
-    { id: "done", name: "Concluído", dot: "bg-green-500", accent: "border-green-500", bg: "bg-green-500/10", btn: "bg-green-600 hover:bg-green-500", help: "Demandas totalmente finalizadas." },
-    { id: "formalize", name: "Formalizar", dot: "bg-teal-500", accent: "border-teal-500", bg: "bg-teal-500/10", btn: "bg-teal-600 hover:bg-teal-500", help: "Aguardando envio de relatório ao cliente." },
-    { id: "cancelled", name: "Cancelado", dot: "bg-red-500", accent: "border-red-500", bg: "bg-red-500/10", btn: "bg-red-600 hover:bg-red-500", help: "Demandas descartadas." },
+    { id: "backlog", name: "Backlog", dot: "bg-indigo-500", accent: "border-indigo-500/50", bg: "bg-indigo-500/10", btn: "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border-indigo-500/20", help: "Ideias e novas demandas ainda não priorizadas." },
+    { id: "todo", name: "A Fazer", dot: "bg-amber-500", accent: "border-amber-500/50", bg: "bg-amber-500/10", btn: "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20", help: "Priorizadas e prontas para iniciar." },
+    { id: "inprogress", name: "Em Andamento", dot: "bg-blue-500", accent: "border-blue-500/50", bg: "bg-blue-500/10", btn: "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20", help: "Demandas ativas no momento." },
+    { id: "paused", name: "Pausado", dot: "bg-orange-500", accent: "border-orange-500/50", bg: "bg-orange-500/10", btn: "bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/20", help: "Demandas temporariamente interrompidas." },
+    { id: "waiting", name: "Aguardando", dot: "bg-pink-500", accent: "border-pink-500/50", bg: "bg-pink-500/10", btn: "bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border-pink-500/20", help: "Aguardando resposta do cliente ou equipe." },
+    { id: "review", name: "Em Revisão", dot: "bg-purple-500", accent: "border-purple-500/50", bg: "bg-purple-500/10", btn: "bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/20", help: "Concluídas aguardando aprovação." },
+    { id: "done", name: "Concluído", dot: "bg-emerald-500", accent: "border-emerald-500/50", bg: "bg-emerald-500/10", btn: "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20", help: "Demandas totalmente finalizadas." },
+    { id: "formalize", name: "Formalizar", dot: "bg-teal-500", accent: "border-teal-500/50", bg: "bg-teal-500/10", btn: "bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border-teal-500/20", help: "Aguardando envio de relatório ao cliente." },
+    { id: "cancelled", name: "Cancelado", dot: "bg-red-500", accent: "border-red-500/50", bg: "bg-red-500/10", btn: "bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20", help: "Demandas descartadas." },
 ];
 
 const PRIORITY_STYLE = {
@@ -229,7 +293,7 @@ const PRIORITY_STYLE = {
   Alta: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20", dot: "bg-red-500" },
 };
 
-function KanbanMain({ user, onLogout }) {
+function KanbanMain({ user, setUser, onLogout }) {
   const [tasks, setTasks] = useState([]);
   const [clients, setClients] = useState([]);
   const [responsibles, setResponsibles] = useState([]);
@@ -311,6 +375,7 @@ function KanbanMain({ user, onLogout }) {
   const [filterPriority, setFilterPriority] = useState("all");
   
   const [modal, setModal] = useState(null); 
+  const [profileModal, setProfileModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [validationError, setValidationError] = useState(null);
   
@@ -368,7 +433,9 @@ function KanbanMain({ user, onLogout }) {
   const activeTasksCount = visibleTasks.filter((t) => t.status !== "cancelled").length;
   const doneCount = visibleTasks.filter((t) => t.status === "done" || t.status === "formalize").length;
   const overallProgress = activeTasksCount ? Math.round((doneCount / activeTasksCount) * 100) : 0;
-  const doneTasks = visibleTasks.filter(t => t.status === 'done');
+  
+  // Para fechamento, pegamos todas as demandas ativas (tirando backlog, a fazer e canceladas)
+  const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done', 'formalize'].includes(t.status));
 
   const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, dueDate: "", status: "", waitingFor: "", checklist: [] };
 
@@ -389,8 +456,12 @@ function KanbanMain({ user, onLogout }) {
     const f = modal.form;
     const missing = [];
     if (!f.title.trim()) missing.push("Título");
+    if (!f.description.trim()) missing.push("Descrição");
+    if (!f.clientId) missing.push("Cliente");
     if (!f.responsibleId) missing.push("Responsável");
-    if (f.status === 'waiting' && !f.waitingFor) missing.push("Aguardando Retorno De");
+    if (!f.status) missing.push("Fase do Fluxo");
+    if (!f.priority) missing.push("Prioridade");
+    if (f.status === 'waiting' && !f.waitingFor) missing.push("Dependência (Aguardando por)");
     
     if (missing.length > 0) {
       setValidationError(missing);
@@ -639,23 +710,25 @@ function KanbanMain({ user, onLogout }) {
     e.dataTransfer.setData("taskId", taskId);
   };
 
+  const userAvatar = localStorage.getItem(`lumina_avatar_${user.id}`);
+
   if (isLoading) {
     return (
-      <div className="h-screen w-full bg-[#0f1015] flex flex-col items-center justify-center p-4 text-center">
-        <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 shadow-2xl animate-modal-pop">
+      <div className="h-screen w-full bg-[#09090b] flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 shadow-[0_0_30px_rgba(79,70,229,0.1)] animate-modal-pop">
           <img src="/apple-icon.png" alt="Lumina" className="w-full h-full object-cover" />
         </div>
-        <div className="text-neutral-400 font-medium animate-pulse text-sm">Sincronizando Lumina...</div>
+        <div className="text-indigo-400 font-bold uppercase tracking-widest animate-pulse text-xs">Sincronizando Lumina...</div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-full bg-[#0f1015] text-neutral-100 flex flex-col overflow-hidden font-sans">
+    <div className="h-screen w-full bg-[#09090b] text-neutral-100 flex overflow-hidden font-sans">
       <style>{`
         .kp-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .kp-scroll::-webkit-scrollbar-thumb { background: #2a2d3d; border-radius: 6px; }
-        .kp-scroll::-webkit-scrollbar-thumb:hover { background: #3f4359; }
+        .kp-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
+        .kp-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
         .kp-scroll::-webkit-scrollbar-track { background: transparent; }
         
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -664,242 +737,279 @@ function KanbanMain({ user, onLogout }) {
         .fade-in { animation: fadeIn 0.2s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .fade-out { animation: fadeOut 0.25s ease-out forwards; }
+        .fade-out { animation: fadeOut 0.2s ease-out forwards; }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
         .animate-modal-pop { animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         
-        .animate-modal-out { animation: modalPopOut 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-modal-out { animation: modalPopOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes modalPopOut { 0% { opacity: 1; transform: scale(1) translateY(0); } 100% { opacity: 0; transform: scale(0.97) translateY(10px); } }
         
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
+
+        .glass-panel { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
       `}</style>
 
-      {/* HEADER LUMINA */}
-      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between p-4 md:px-6 md:py-4 border-b border-[#2a2d3d] bg-[#161821] z-20 relative gap-4 md:gap-0">
+      {/* LEFT SIDEBAR (Desktop) */}
+      <div className="hidden md:flex flex-col w-[88px] bg-[#0f0f13] border-r border-[#1f1f26] shrink-0 py-6 items-center z-30 justify-between">
+        <div className="flex flex-col items-center gap-8 w-full">
+          <div className="w-12 h-12 rounded-[14px] bg-black flex items-center justify-center shrink-0 overflow-hidden border border-white/10 shadow-[0_0_20px_rgba(79,70,229,0.15)] relative group cursor-default">
+            <img src="/apple-icon.png" alt="L" className="w-full h-full object-cover" />
+          </div>
+          
+          <div className="flex flex-col items-center gap-3 w-full px-3">
+             <SidebarBtn icon={<LayoutDashboard size={20} />} active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} tooltip="Pipeline" />
+             <SidebarBtn icon={<Clock size={20} />} active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} tooltip="Timer" />
+             <SidebarBtn icon={<Users size={20} />} active={activeTab === 'responsibles' && !isClosingModal} onClick={() => setActiveTab('responsibles')} tooltip="Equipe" />
+             <SidebarBtn icon={<Building2 size={20} />} active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} tooltip="Clientes" alert={clientsNearLimit.length > 0} />
+             <SidebarBtn icon={<BarChart3 size={20} />} active={activeTab === 'reports' && !isClosingModal} onClick={() => setActiveTab('reports')} tooltip="Analytics" />
+          </div>
+        </div>
         
-        <div className="flex items-center justify-between w-full md:w-auto">
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-10 h-10 rounded-[10px] bg-black flex items-center justify-center shrink-0 overflow-hidden border border-white/10 shadow-lg">
-              <img src="/apple-icon.png" alt="L" className="w-full h-full object-cover" />
+        <div className="flex flex-col items-center gap-4">
+           <button onClick={() => setProfileModal(true)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors" title="Configurações de Perfil">
+             {userAvatar ? <img src={userAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+           </button>
+           <button onClick={onLogout} className="p-3 rounded-xl text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Sair"><LogOut size={20}/></button>
+        </div>
+      </div>
+
+      {/* ÁREA PRINCIPAL */}
+      <div className={`flex-1 flex flex-col min-w-0 bg-gradient-to-br from-[#09090b] to-[#0d0e15] relative`}>
+        
+        {/* HEADER TOP (Desktop & Mobile) */}
+        <div className="shrink-0 flex items-center justify-between p-4 md:px-8 md:py-6 relative z-20">
+          <div className="flex items-center gap-3">
+            {/* Mobile Title */}
+            <div className="md:hidden flex items-center gap-3">
+              <button onClick={() => setProfileModal(true)} className="w-9 h-9 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden">
+                {userAvatar ? <img src={userAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+              </button>
+              <h1 className="font-bold text-xl text-white tracking-tight">Lumina</h1>
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-xl bg-gradient-to-r from-white to-neutral-500 bg-clip-text text-transparent leading-none">Lumina</span>
+            
+            {/* Desktop Title */}
+            <div className="hidden md:flex flex-col">
+              <div className="flex items-center gap-3">
+                <h1 className="font-bold text-2xl text-white tracking-tight">Kanban & Analytics</h1>
                 {isCloudSynced && (
-                  <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                    <Cloud size={10} /> Sinc
+                  <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md flex items-center gap-1">
+                    <Cloud size={10} /> Sincronizado
                   </span>
                 )}
               </div>
-              <span className="text-[11px] text-indigo-400 font-medium truncate max-w-[200px] mt-0.5">
-                {user.name} {user.isAdmin && <span className="opacity-70">(Admin)</span>}
-              </span>
+              <span className="text-xs text-neutral-500 mt-1">Bem-vindo(a) de volta, {user.name}</span>
             </div>
           </div>
+
+          <TopWidgets />
+        </div>
+
+        {/* MODAIS Overlay */}
+        {activeTab === 'timer' && <OverlayModal title="Cronómetro" icon={<Clock size={20} className="text-amber-500"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TimerPanelContent tasks={filteredTasks} now={now} getElapsed={getElapsed} onToggleTimer={toggleTimer} user={user} /></OverlayModal>}
+        {activeTab === 'responsibles' && <OverlayModal title="Responsáveis (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} setResponsibles={setResponsibles} tasks={tasks} setTasks={setTasks} user={user} /></OverlayModal>}
+        {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={clients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} now={now} /></OverlayModal>}
+        {activeTab === 'reports' && <AnalyticsModal isClosing={isClosingModal} onClose={handleCloseTab} tasks={filteredTasks} clients={clients} responsibles={responsibles} now={now} getElapsed={getElapsed} />}
+
+        {/* BOARD VIEW */}
+        <div className={`flex-1 flex flex-col min-h-0 ${activeTab !== 'board' ? 'hidden md:flex opacity-30 pointer-events-none transition-opacity duration-300' : 'fade-in'}`}>
           
-          <div className="flex items-center gap-2 md:hidden">
-            <button onClick={onLogout} className="p-2 rounded-xl text-neutral-400 hover:text-white bg-[#0f1015] border border-[#2a2d3d]"><LogOut size={16}/></button>
-          </div>
-        </div>
-
-        {/* Menu Tátil de Navegação */}
-        <div className="w-full md:w-auto overflow-x-auto hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-          <div className="flex items-center gap-2 pb-1 min-w-max">
-            <HeaderBtn icon={<LayoutDashboard size={14} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} color="indigo" />
-            <HeaderBtn icon={<Clock size={14} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} color="amber" />
-            <HeaderBtn icon={<Users size={14} />} label="Contas" active={activeTab === 'responsibles' && !isClosingModal} onClick={() => setActiveTab('responsibles')} color="indigo" />
-            <HeaderBtn 
-              icon={
-                <div className="relative flex items-center justify-center">
-                  <Building2 size={14} />
-                  {clientsNearLimit.length > 0 && (
-                    <span className="absolute -top-1.5 -right-2 flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                    </span>
-                  )}
+          <div className="shrink-0 px-4 md:px-8 pb-5 flex flex-col gap-4">
+             {/* Filtros e Fechamento Semanal */}
+             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0">
+                  <div className="glass-panel px-4 py-2.5 rounded-xl flex items-center gap-3 min-w-max shadow-sm">
+                    <Filter size={16} className="text-neutral-500 shrink-0" />
+                    <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                    <div className="w-px h-4 bg-white/10"></div>
+                    <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
+                    <div className="w-px h-4 bg-white/10"></div>
+                    <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
+                  </div>
                 </div>
-              } 
-              label="Clientes" active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} color="purple" 
-            />
-            <HeaderBtn icon={<BarChart3 size={14} />} label="Analytics" active={activeTab === 'reports' && !isClosingModal} onClick={() => setActiveTab('reports')} color="blue" />
-            
-            <div className="w-px h-6 bg-[#2a2d3d] mx-1 shrink-0 hidden md:block"></div>
-            <button onClick={onLogout} className="hidden md:flex items-center justify-center p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-[#2a2d3d] transition-all"><LogOut size={16}/></button>
-          </div>
-        </div>
-      </div>
 
-      {/* MODAIS Overlay */}
-      {activeTab === 'timer' && <OverlayModal title="Cronómetro" icon={<Clock size={20} className="text-amber-500"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TimerPanelContent tasks={filteredTasks} now={now} getElapsed={getElapsed} onToggleTimer={toggleTimer} user={user} /></OverlayModal>}
-      {activeTab === 'responsibles' && <OverlayModal title="Responsáveis (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} setResponsibles={setResponsibles} tasks={tasks} setTasks={setTasks} user={user} /></OverlayModal>}
-      {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={clients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} now={now} /></OverlayModal>}
-      {activeTab === 'reports' && <AnalyticsModal isClosing={isClosingModal} onClose={handleCloseTab} tasks={filteredTasks} clients={clients} responsibles={responsibles} now={now} getElapsed={getElapsed} />}
+                <div className="flex items-center gap-3 w-full lg:w-auto">
+                   <div className="glass-panel h-11 flex-1 lg:flex-none flex items-center px-4 rounded-xl gap-3 shadow-sm">
+                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 whitespace-nowrap">Progresso</span>
+                     <div className="w-32 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
+                     </div>
+                     <span className="text-xs font-bold text-white">{overallProgress}%</span>
+                   </div>
 
-      {/* ÁREA PRINCIPAL DO BOARD */}
-      <div className={`flex-1 flex flex-col min-h-0`}>
-        
-        {/* Estatísticas */}
-        <div className={`shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-2`}>
-          <div className="w-full rounded-2xl bg-[#161821] border border-[#2a2d3d] px-4 md:px-5 py-4 shadow-sm">
-            <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-neutral-400 mb-2.5">
-              <span className="font-semibold">Sua Performance Geral</span>
-              <span className="text-emerald-400 font-bold">{overallProgress}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-[#0f1015] overflow-hidden border border-[#2a2d3d]">
-              <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(52,211,153,0.3)]" style={{ width: `${overallProgress}%` }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Filtros Responsivos */}
-        <div className={`shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 md:px-6 pb-4`}>
-          <div className="w-full md:w-auto overflow-x-auto hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-            <div className="flex items-center gap-2 pb-1 min-w-max">
-              <Filter size={16} className="text-neutral-500 shrink-0 hidden sm:block" />
-              <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
-              <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
-              <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
-            </div>
-          </div>
-          {doneTasks.length > 0 && (
-            <button onClick={() => setClosureModal(true)} className="flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 bg-purple-600/10 text-purple-400 border border-purple-500/30 hover:bg-purple-600/20 rounded-xl text-xs font-bold transition-all w-full md:w-auto shrink-0 shadow-lg shadow-purple-500/5">
-              <Mail size={14}/> Fechamento Semanal
-            </button>
-          )}
-        </div>
-
-        {/* Quadro Kanban */}
-        <div className={`flex-1 overflow-x-auto px-4 md:px-6 pb-6 kp-scroll`}>
-          <div className="flex gap-4 items-start h-full min-w-max pb-2">
-            {COLUMNS.map((col) => {
-              const colTasks = filteredTasks.filter((t) => t.status === col.id);
-              return (
-                <div key={col.id} className={`w-[85vw] max-w-[320px] sm:w-[320px] shrink-0 rounded-2xl bg-[#161821] border-t-[3px] ${col.accent} border-[#2a2d3d] border-x border-b flex flex-col max-h-full shadow-sm`}>
-                  <div className="px-3.5 pt-3.5 pb-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-neutral-400 relative group cursor-default">
-                      <span className={`w-2 h-2 rounded-full ${col.dot} shadow-sm shrink-0`} />
-                      {col.name}
-                      <HelpCircle size={14} className="text-neutral-600 hover:text-neutral-400 transition-colors" />
-                      <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-[#1c1e29] border border-[#3f4359] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none normal-case tracking-normal">
-                        <div className="text-[11px] text-neutral-300 leading-relaxed font-normal">{col.help}</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-lg bg-[#0f1015] text-neutral-500 border border-[#2a2d3d] font-bold">{colTasks.length}</span>
-                  </div>
-                  
-                  <div className="px-3 pb-3">
-                    <button onClick={() => openAddModal(col.id)} className={`w-full flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider rounded-xl py-3 md:py-2 transition-all ${col.btn} shadow-lg shadow-black/10`}>
-                      <Plus size={14} /> Nova Tarefa
-                    </button>
-                  </div>
-                  
-                  <div className="px-3 pb-3 flex-1 overflow-y-auto kp-scroll flex flex-col gap-2.5" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}>
-                    {colTasks.length === 0 && (
-                      <div className="text-center text-[11px] text-neutral-700 py-8 border border-dashed border-[#2a2d3d] rounded-2xl">
-                        Sem cards aqui
-                      </div>
+                   {tasksForClosure.length > 0 && (
+                      <button onClick={() => setClosureModal(true)} className="h-11 px-5 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
+                        <Mail size={16}/> Fechar Semana
+                      </button>
                     )}
-                    {colTasks.map((t) => {
-                      const tChecklist = Array.isArray(t.checklist) ? t.checklist : [];
-                      const total = tChecklist.length;
-                      const done = tChecklist.filter((c) => c.done).length;
-                      const pct = total ? Math.round((done / total) * 100) : 0;
-                      const client = clients.find(c => c.id === t.clientId);
-                      const resp = responsibles.find(r => r.id === t.responsibleId);
-                      const prStyle = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE.Média;
-                      const isDoneOrCancelled = t.status === "done" || t.status === "cancelled" || t.status === "formalize";
-                      const isEditable = canEditTask(t.responsibleId);
-
-                      return (
-                        <div key={t.id} className={`rounded-2xl bg-[#1c1e29] border p-3.5 transition-all group ${isDoneOrCancelled ? 'opacity-80' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f4359] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_10px_rgba(99,102,241,0.2)]' : 'border-[#2a2d3d]'}`} draggable={isEditable} onDragStart={(e) => { if(isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
-                          <div className="flex gap-2 items-start mb-2">
-                            {isEditable ? <GripVertical size={14} className="text-neutral-600 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" /> : <Lock size={12} className="text-neutral-600 shrink-0 mt-0.5 hidden md:block" />}
-                            <div className="flex-1">
-                              <div className={`text-sm font-bold mb-1 leading-snug ${isDoneOrCancelled ? 'text-neutral-500 line-through' : 'text-neutral-100'}`}>{t.title}</div>
-                              {t.description && <div className="text-[11px] text-neutral-500 mb-2 line-clamp-2">{t.description}</div>}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-1.5 mb-3 pl-1 md:pl-5">
-                            <span className={`flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-lg border font-bold ${prStyle.bg} ${prStyle.text} ${prStyle.border}`}>
-                              <span className={`w-1 h-1 rounded-full ${prStyle.dot}`} /> {t.priority}
-                            </span>
-                            {client && <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20 font-bold max-w-[120px] truncate"><Building2 size={10} /> {client.name}</span>}
-                            {resp && <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-lg bg-[#2a2d3d] text-neutral-400 border border-[#3f4359] font-bold max-w-[120px] truncate"><User size={10} /> {resp.name}</span>}
-                          </div>
-
-                          {t.status === 'waiting' && t.waitingFor && (
-                            <div className="flex items-center gap-1.5 text-[10px] mb-3 pl-1 md:pl-5 font-bold uppercase tracking-tight w-fit bg-pink-500/10 border border-pink-500/20 px-2 py-1 rounded-lg text-pink-400"><Clock size={12} /> {t.waitingFor}</div>
-                          )}
-
-                          {total > 0 && (
-                            <div className="mb-3 pl-1 md:pl-5">
-                              <div className="flex items-center justify-between text-[10px] text-neutral-500 mb-1.5 font-bold">
-                                <span className="flex items-center gap-1"><CheckSquare size={10}/> {done}/{total}</span>
-                                <span>{pct}%</span>
-                              </div>
-                              <div className="h-1.5 rounded-full bg-[#0f1015] overflow-hidden mb-2 border border-[#2a2d3d]">
-                                <div className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.3)]' : 'bg-blue-600'}`} style={{ width: `${pct}%` }} />
-                              </div>
-                              <div className="flex flex-col gap-2">
-                                {tChecklist.map((c) => (
-                                  <label key={c.id} className={`flex items-start gap-2 text-[11px] text-neutral-400 transition-colors ${isEditable ? 'cursor-pointer hover:text-neutral-200' : 'cursor-not-allowed'}`}>
-                                    <input type="checkbox" disabled={!isEditable} checked={c.done || false} onChange={() => toggleChecklistItem(t.id, c.id)} className="accent-indigo-500 w-4 h-4 md:w-3 md:h-3 mt-0.5 rounded-md shrink-0 bg-[#0f1015] border-[#2a2d3d]" />
-                                    <span className={`leading-snug ${c.done ? "line-through text-neutral-600 opacity-50" : ""}`}>{c.text || ''}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {(t.timerRunning || t.timerElapsed > 0) && !isDoneOrCancelled && (
-                            <div className="flex items-center gap-1.5 text-[11px] mb-3 pl-1 md:pl-5 font-mono font-bold w-fit bg-[#0f1015] border border-[#2a2d3d] px-2 py-1 rounded-lg text-neutral-400">
-                              <Clock size={12} className={t.timerRunning ? "text-amber-500 animate-pulse" : "text-neutral-600"} /> {formatTime(getElapsed(t))}
-                            </div>
-                          )}
-
-                          {isDoneOrCancelled && (t.timerElapsed > 0 || t.durationMin) && (
-                            <div className="flex flex-col gap-1.5 mb-3 pl-1 md:pl-5 bg-[#0f1015]/50 border border-[#2a2d3d]/50 p-2 rounded-xl w-fit">
-                              {t.timerElapsed > 0 && <div className="flex items-center gap-1.5 text-[10px] font-mono text-neutral-500"><CheckCircle2 size={12} className="text-green-500" /> {formatTime(t.timerElapsed)}</div>}
-                              {t.durationMin && <div className="flex items-center gap-1.5 text-[10px] text-neutral-600"><TimerIcon size={12} /> {t.durationMin}m</div>}
-                            </div>
-                          )}
-
-                          {isEditable && (
-                            <div className="flex flex-wrap gap-1.5 pl-1 md:pl-5 pt-3 border-t border-[#2a2d3d]/50">
-                              <SmallBtn onClick={() => openEditModal(t)} icon={<Pencil size={12} />} label="Editar" />
-                              {!isDoneOrCancelled && <SmallBtn onClick={() => toggleTimer(t.id)} icon={t.timerRunning ? <Square size={12}/> : <Play size={12} />} label={t.timerRunning ? "Stop" : "Play"} active={t.timerRunning} tone="amber" />}
-                              {t.status !== "cancelled" ? <SmallBtn onClick={() => handleRequestMove(t.id, null, 'cancelled')} icon={<X size={12} />} label="" tone="red" /> : <><SmallBtn onClick={() => handleRequestMove(t.id, null, 'backlog')} icon={<RotateCcw size={12} />} label="Revive" tone="green" /><SmallBtn onClick={() => setConfirmDelete(t.id)} icon={<Trash2 size={12} />} label="" tone="red" /></>}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
-              );
-            })}
+             </div>
+          </div>
+
+          {/* Quadro Kanban (Scroll Horizontal nativo) */}
+          <div className="flex-1 overflow-x-auto px-4 md:px-8 pb-8 kp-scroll">
+            <div className="flex gap-5 items-start h-full min-w-max pb-4">
+              {COLUMNS.map((col) => {
+                const colTasks = filteredTasks.filter((t) => t.status === col.id);
+                return (
+                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col max-h-full shadow-sm">
+                    
+                    {/* Header da Coluna */}
+                    <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-2.5 h-2.5 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} />
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-white">{col.name}</h2>
+                      </div>
+                      <span className="text-[10px] px-2.5 py-1 rounded-lg bg-black/40 text-neutral-400 font-bold border border-white/5">{colTasks.length}</span>
+                    </div>
+                    
+                    {/* Botão de Adicionar */}
+                    <div className="px-3 pt-3">
+                      <button onClick={() => openAddModal(col.id)} className={`w-full flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest rounded-xl py-3 transition-all border border-dashed ${col.btn}`}>
+                        <Plus size={14} /> Nova Demanda
+                      </button>
+                    </div>
+                    
+                    {/* Área de Cartões */}
+                    <div className="px-3 pb-3 flex-1 overflow-y-auto kp-scroll flex flex-col gap-3 mt-3" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}>
+                      {colTasks.length === 0 && (
+                        <div className="text-center text-[10px] font-medium uppercase tracking-widest text-neutral-600 py-10 border border-dashed border-white/5 rounded-xl mx-2">
+                          Solte itens aqui
+                        </div>
+                      )}
+                      {colTasks.map((t) => {
+                        const tChecklist = Array.isArray(t.checklist) ? t.checklist : [];
+                        const total = tChecklist.length;
+                        const done = tChecklist.filter((c) => c.done).length;
+                        const pct = total ? Math.round((done / total) * 100) : 0;
+                        const client = clients.find(c => c.id === t.clientId);
+                        const resp = responsibles.find(r => r.id === t.responsibleId);
+                        const prStyle = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE.Média;
+                        const isDoneOrCancelled = t.status === "done" || t.status === "cancelled" || t.status === "formalize";
+                        const isEditable = canEditTask(t.responsibleId);
+
+                        return (
+                          <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={isEditable} onDragStart={(e) => { if(isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
+                            
+                            {/* Badges do Cartão */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2">
+                                {client && <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-white/5 text-neutral-300 font-bold max-w-[140px] truncate border border-white/5"><Building2 size={10} /> {client.name}</span>}
+                                <span className={`flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md border font-bold ${prStyle.bg} ${prStyle.text} ${prStyle.border}`}>
+                                  <span className={`w-1 h-1 rounded-full ${prStyle.dot}`} /> {t.priority}
+                                </span>
+                              </div>
+                              {isEditable && <GripVertical size={14} className="text-neutral-600 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" />}
+                              {!isEditable && <Lock size={12} className="text-neutral-600 shrink-0 hidden md:block" />}
+                            </div>
+
+                            <div className="mb-3">
+                              <h3 className={`text-[13px] font-bold leading-relaxed mb-1.5 ${isDoneOrCancelled ? 'text-neutral-500 line-through' : 'text-white'}`}>{t.title}</h3>
+                              {t.description && <div className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">{t.description}</div>}
+                            </div>
+
+                            {t.status === 'waiting' && t.waitingFor && (
+                              <div className="flex items-center gap-1.5 text-[10px] mb-4 font-bold uppercase tracking-tight w-fit bg-pink-500/10 border border-pink-500/20 px-2.5 py-1 rounded-lg text-pink-400"><Clock size={12} /> Pendente: {t.waitingFor}</div>
+                            )}
+
+                            {/* Checklist Detalhado Visível no Cartão */}
+                            {total > 0 && (
+                              <div className="mb-3">
+                                <div className="h-1 rounded-full bg-black/40 overflow-hidden mb-2 border border-white/5">
+                                  <div className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.3)]' : 'bg-indigo-500'}`} style={{ width: `${pct}%` }} />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                  {tChecklist.map((c) => (
+                                    <div key={c.id} className="flex items-start gap-2 text-[11px] text-neutral-400">
+                                      <button onClick={(e) => { e.stopPropagation(); toggleChecklistItem(t.id, c.id); }} disabled={!isEditable} className={`mt-0.5 w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400' : 'bg-black/30 border-white/10 hover:border-white/20 text-transparent'} transition-colors`}>
+                                         <Check size={10} strokeWidth={3} className={c.done ? 'opacity-100' : 'opacity-0'} />
+                                      </button>
+                                      <span className={`leading-snug ${c.done ? "line-through text-neutral-500" : "text-neutral-300"}`}>{c.text || ''}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Info de Rodapé do Cartão com Botões Integrados */}
+                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+                               <div className="flex items-center gap-2">
+                                  {resp && (
+                                     <div className="w-5 h-5 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[9px] font-bold text-indigo-300 uppercase" title={`Responsável: ${resp.name}`}>
+                                        {resp.name.charAt(0)}
+                                     </div>
+                                  )}
+                                  
+                                  {(t.timerRunning || t.timerElapsed > 0) && !isDoneOrCancelled && (
+                                    <div className="flex items-center gap-1 text-[10px] font-mono font-bold bg-black/30 border border-white/5 px-2 py-1 rounded-md text-neutral-400">
+                                      <Clock size={10} className={t.timerRunning ? "text-amber-500 animate-pulse" : "text-neutral-500"} /> {formatTime(getElapsed(t))}
+                                    </div>
+                                  )}
+
+                                  {isDoneOrCancelled && (t.timerElapsed > 0 || t.durationMin > 0) && (
+                                     <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+                                       <CheckCircle2 size={10} /> {formatTime(t.timerElapsed || (t.durationMin * 60))}
+                                     </div>
+                                  )}
+                               </div>
+
+                               <div className="flex items-center gap-1">
+                                  {isEditable && (
+                                    <>
+                                      <button onClick={() => openEditModal(t)} className="p-1.5 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white rounded-lg transition-colors border border-transparent hover:border-white/10" title="Editar"><Pencil size={12}/></button>
+                                      {!isDoneOrCancelled && <button onClick={() => toggleTimer(t.id)} className={`p-1.5 rounded-lg transition-colors border ${t.timerRunning ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : 'text-neutral-400 bg-white/5 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'}`} title="Timer"><Play size={12}/></button>}
+                                    </>
+                                  )}
+                                  {isEditable && t.status !== "cancelled" && isDoneOrCancelled && (
+                                    <button onClick={() => handleRequestMove(t.id, null, 'cancelled')} className="p-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-500/50 hover:text-red-400 rounded-lg transition-colors" title="Cancelar"><X size={12}/></button>
+                                  )}
+                                  {isEditable && t.status === "cancelled" && (
+                                    <>
+                                      <button onClick={() => handleRequestMove(t.id, null, 'backlog')} className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors" title="Restaurar"><RotateCcw size={12}/></button>
+                                      <button onClick={() => setConfirmDelete(t.id)} className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors" title="Apagar Definitivamente"><Trash2 size={12}/></button>
+                                    </>
+                                  )}
+                               </div>
+                            </div>
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* MOBILE BOTTOM NAV */}
+      <div className="md:hidden shrink-0 flex items-center justify-around p-3 bg-[#12121a] border-t border-[#27272a] z-30 relative pb-safe">
+         <MobileNavBtn icon={<LayoutDashboard size={20} />} active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
+         <MobileNavBtn icon={<Clock size={20} />} active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
+         <MobileNavBtn icon={<Building2 size={20} />} active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} alert={clientsNearLimit.length > 0} />
+         <MobileNavBtn icon={<BarChart3 size={20} />} active={activeTab === 'reports' && !isClosingModal} onClick={() => setActiveTab('reports')} />
+      </div>
+
+      {/* Pop-up: Perfil do Utilizador */}
+      {profileModal && <ProfileModal user={user} onClose={() => setProfileModal(false)} onUpdate={(u) => { setUser(u); localStorage.setItem("kanban_user_obj", JSON.stringify(u)); }} />}
 
       {/* Pop-up: Aguardando Retorno */}
       {waitingPrompt && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-[#161821] border border-[#2a2d3d] p-6 shadow-2xl relative animate-modal-pop">
-            <button onClick={() => setWaitingPrompt(null)} className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors p-2"><X size={20} /></button>
-            <div className="flex items-center gap-3 mb-4 text-pink-500">
+          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] p-8 shadow-2xl relative animate-modal-pop">
+            <button onClick={() => setWaitingPrompt(null)} className="absolute top-6 right-6 text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
+            <div className="flex items-center gap-3 mb-6 text-pink-500">
               <div className="p-3 bg-pink-500/10 rounded-2xl shadow-inner"><HelpCircle size={24} /></div>
               <h3 className="font-bold text-lg">Pendente de quem?</h3>
             </div>
-            <p className="text-sm text-neutral-400 mb-6 leading-relaxed">O card foi movido para Aguardando. Selecione o bloqueador:</p>
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <button onClick={() => { setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Cliente' } : t)); setWaitingPrompt(null); }} className="w-full sm:flex-1 py-3.5 sm:py-3 rounded-2xl border border-[#2a2d3d] hover:border-[#3f4359] hover:bg-[#2a2d3d] text-white font-bold transition-all text-sm">Cliente</button>
-              <button onClick={() => { setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Time Interno' } : t)); setWaitingPrompt(null); }} className="w-full sm:flex-1 py-3.5 sm:py-3 rounded-2xl bg-pink-600 hover:bg-pink-500 text-white font-bold transition-all text-sm shadow-lg shadow-pink-600/10">Time Interno</button>
+            <p className="text-sm text-neutral-400 mb-8 leading-relaxed">O card foi movido para Aguardando. Selecione o bloqueador da tarefa:</p>
+            <div className="flex flex-col gap-3">
+              <button onClick={() => { setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Cliente' } : t)); setWaitingPrompt(null); }} className="w-full py-4 rounded-2xl border border-[#2a2d3d] hover:border-[#3f4359] hover:bg-white/5 text-white font-bold transition-all text-sm">Responsabilidade do Cliente</button>
+              <button onClick={() => { setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Time Interno' } : t)); setWaitingPrompt(null); }} className="w-full py-4 rounded-2xl bg-pink-600 hover:bg-pink-500 text-white font-bold transition-all text-sm shadow-lg shadow-pink-600/10">Nossa Responsabilidade</button>
             </div>
           </div>
         </div>
@@ -908,25 +1018,25 @@ function KanbanMain({ user, onLogout }) {
       {/* Pop-up: Conclusão de Demanda */}
       {donePrompt && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[90] fade-in">
-          <div className="w-full max-w-sm rounded-3xl bg-[#161821] border border-[#2a2d3d] shadow-2xl relative overflow-hidden animate-modal-pop">
-            <div className="px-6 py-5 border-b border-[#2a2d3d] bg-[#1a1c24] flex items-center gap-3 text-green-500">
+          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl relative overflow-hidden animate-modal-pop">
+            <div className="px-8 py-6 border-b border-[#27272a] flex items-center gap-3 text-emerald-500">
               <CheckCircle2 size={24} />
-              <h3 className="font-bold text-lg text-white">Finalizar Lumina</h3>
+              <h3 className="font-bold text-xl text-white tracking-tight">Finalizar Demanda</h3>
             </div>
-            <div className="p-6 flex flex-col gap-4">
-              {validationError && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3 py-2.5 rounded-xl flex items-center gap-2 animate-pulse"><AlertTriangle size={14} className="shrink-0" /> {Array.isArray(validationError) ? validationError.join(", ") : String(validationError)}</div>}
+            <div className="p-8 flex flex-col gap-5">
+              {validationError && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl flex items-center gap-2 animate-pulse"><AlertTriangle size={14} className="shrink-0" /> {Array.isArray(validationError) ? validationError.join(", ") : String(validationError)}</div>}
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5 block ml-1">Data Real de Entrega *</label>
-                <input type="date" value={donePrompt.date || ''} onChange={e => { setDonePrompt({...donePrompt, date: e.target.value}); setValidationError(null); }} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-green-500 [color-scheme:dark]" />
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Data Real de Entrega *</label>
+                <input type="date" value={donePrompt.date || ''} onChange={e => { setDonePrompt({...donePrompt, date: e.target.value}); setValidationError(null); }} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-4 text-sm text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
               </div>
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5 block ml-1">Tempo Total Gasto (Minutos) *</label>
-                <input type="number" value={donePrompt.durationMin ?? ''} onChange={e => { setDonePrompt({...donePrompt, durationMin: e.target.value}); setValidationError(null); }} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-green-500" placeholder="Ex: 45" />
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Tempo Total Gasto (Minutos) *</label>
+                <input type="number" value={donePrompt.durationMin ?? ''} onChange={e => { setDonePrompt({...donePrompt, durationMin: e.target.value}); setValidationError(null); }} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-4 text-sm text-white outline-none focus:border-emerald-500" placeholder="Ex: 45" />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-[#2a2d3d] bg-[#1a1c24] flex items-center justify-end gap-3">
-              <button onClick={() => { setDonePrompt(null); setValidationError(null); }} className="text-sm px-4 py-3 sm:py-2 rounded-xl text-neutral-400 hover:text-white transition-colors">Cancelar</button>
-              <button onClick={confirmDoneMove} className="text-sm px-6 py-3 sm:py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold transition-all shadow-lg shadow-green-600/10">Confirmar</button>
+            <div className="px-8 py-5 border-t border-[#27272a] bg-black/20 flex items-center justify-end gap-3">
+              <button onClick={() => { setDonePrompt(null); setValidationError(null); }} className="text-sm px-5 py-3 rounded-xl text-neutral-500 hover:text-white transition-colors font-bold">Cancelar</button>
+              <button onClick={confirmDoneMove} className="text-sm px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-all shadow-lg shadow-emerald-600/20">Confirmar</button>
             </div>
           </div>
         </div>
@@ -935,56 +1045,179 @@ function KanbanMain({ user, onLogout }) {
       {/* Alerta de Banco de Horas */}
       {pendingLimitAlerts.length > 0 && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-[#161821] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
-            <div className="px-6 py-5 border-b border-[#2a2d3d] bg-[#1a1c24] flex items-center gap-3">
-              <div className="p-3 bg-red-500/10 rounded-2xl shadow-inner text-red-400"><AlertTriangle size={24} /></div>
-              <h3 className="font-bold text-lg text-white">Alerta: Banco de Horas</h3>
+          <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
+            <div className="px-8 py-6 border-b border-[#27272a] flex items-center gap-3">
+              <div className="p-3 bg-red-500/10 rounded-2xl shadow-inner text-red-500"><AlertTriangle size={24} /></div>
+              <h3 className="font-bold text-xl text-white tracking-tight">Alerta de Limite</h3>
             </div>
-            <div className="p-6 flex flex-col gap-4">
-              <p className="text-sm text-neutral-300">Os seguintes clientes estão com o tempo esgotado ou próximo do fim:</p>
-              <div className="flex flex-col gap-2 max-h-40 overflow-y-auto kp-scroll pr-2">
+            <div className="p-8 flex flex-col gap-4">
+              <p className="text-sm text-neutral-400">Os seguintes clientes esgotaram as horas mensais ou estão próximos do fim:</p>
+              <div className="flex flex-col gap-3 max-h-40 overflow-y-auto kp-scroll pr-2">
                 {pendingLimitAlerts.map(c => {
                   const cTasks = tasks.filter(t => t.clientId === c.id);
                   const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
                   const remaining = (c.contractedHours || 0) - hours;
                   return (
-                    <div key={c.id} className="flex justify-between items-center bg-[#0f1015] border border-[#2a2d3d] p-3 rounded-xl">
+                    <div key={c.id} className="flex justify-between items-center bg-[#09090b] border border-[#27272a] p-4 rounded-xl">
                       <span className="text-sm font-bold text-white">{c.name}</span>
-                      <span className={`text-xs font-black ${remaining < 0 ? 'text-red-500' : 'text-amber-500'}`}>{remaining.toFixed(1)}h Restantes</span>
+                      <span className={`text-xs font-black px-2.5 py-1 rounded-md ${remaining < 0 ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>{remaining.toFixed(1)}h Restam</span>
                     </div>
                   );
                 })}
               </div>
               <p className="text-[11px] text-neutral-500 italic">Formalize o aviso na aba Clientes para continuar.</p>
             </div>
-            <div className="px-6 py-4 border-t border-[#2a2d3d] bg-[#1a1c24] flex justify-end">
-              <button onClick={() => setDismissedLimits(prev => new Set([...prev, ...pendingLimitAlerts.map(c => c.id)]))} className="w-full sm:w-auto text-sm px-8 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all shadow-lg shadow-red-600/10">Entendido</button>
+            <div className="px-8 py-5 border-t border-[#27272a] bg-black/20 flex justify-end">
+              <button onClick={() => setDismissedLimits(prev => new Set([...prev, ...pendingLimitAlerts.map(c => c.id)]))} className="w-full sm:w-auto text-sm px-8 py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all shadow-lg shadow-red-600/20">Ciente do Aviso</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar Exclusão de Cartão */}
+      {confirmDelete !== null && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[110] fade-in">
+          <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] p-8 shadow-2xl relative animate-modal-pop">
+            <div className="flex items-center gap-3 mb-4 text-red-500">
+              <div className="p-3 bg-red-500/10 rounded-2xl shadow-inner"><Trash2 size={24} /></div>
+              <h3 className="font-bold text-xl tracking-tight">Apagar Card</h3>
+            </div>
+            <p className="text-sm text-neutral-400 mb-8 leading-relaxed">
+              Deseja remover esta demanda definitivamente do sistema? A ação não pode ser desfeita.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button onClick={() => setConfirmDelete(null)} className="w-full sm:flex-1 py-3.5 sm:py-3 rounded-2xl border border-[#27272a] hover:bg-white/5 text-white font-bold transition-all text-sm">Cancelar</button>
+              <button onClick={async () => {
+                  const idToDelete = confirmDelete;
+                  setTasks(prev => prev.filter((t) => t.id !== idToDelete));
+                  setConfirmDelete(null);
+                  if (window.supabaseClient) await window.supabaseClient.from('tasks').delete().eq('id', idToDelete.toString());
+                }} 
+                className="w-full sm:flex-1 py-3.5 sm:py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all text-sm shadow-lg shadow-red-600/10"
+              >
+                Apagar
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Modais de Popups Principais */}
-      {closureModal && <ClosureModal tasks={doneTasks} clients={clients} responsibles={responsibles} onClose={() => setClosureModal(false)} onFormalize={(clientId) => { if (clientId) { setTasks(prev => prev.map(t => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t)); } else { setTasks(prev => prev.map(t => t.status === 'done' ? { ...t, status: 'formalize' } : t)); setClosureModal(false); } }} />}
+      {closureModal && <ClosureModal tasks={tasksForClosure} clients={clients} responsibles={responsibles} onClose={() => setClosureModal(false)} onFormalize={(clientId) => { if (clientId) { setTasks(prev => prev.map(t => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t)); } else { setTasks(prev => prev.map(t => t.status === 'done' ? { ...t, status: 'formalize' } : t)); setClosureModal(false); } }} />}
       {modal && <TaskModal modal={modal} setModal={setModal} clients={clients} responsibles={responsibles} closeModal={closeModal} saveModal={saveModal} validationError={validationError} setValidationError={setValidationError} />}
     </div>
   );
 }
 
-// --- Sub-Componentes UI Reutilizáveis ---
+// --- Sub-Componentes UI Reutilizáveis (Lumina 2.0 Estilo) ---
+
+function ProfileModal({ user, onClose, onUpdate }) {
+  const [password, setPassword] = useState('');
+  const [avatarInput, setAvatarInput] = useState('');
+  const [currentAvatar, setCurrentAvatar] = useState(localStorage.getItem(`lumina_avatar_${user.id}`) || '');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    let updatedUser = { ...user };
+    
+    if (avatarInput.trim()) {
+      localStorage.setItem(`lumina_avatar_${user.id}`, avatarInput.trim());
+      setCurrentAvatar(avatarInput.trim());
+    }
+
+    if (password.trim()) {
+      if (password.trim().length < 4) {
+        alert("A senha deve ter no mínimo 4 caracteres.");
+        setIsLoading(false);
+        return;
+      }
+      try {
+        await window.supabaseClient.from('responsibles').update({ password: password.trim() }).eq('id', user.id);
+      } catch (e) {
+        console.error("Erro ao alterar senha", e);
+      }
+    }
+    
+    onUpdate(updatedUser);
+    setIsLoading(false);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[90] fade-in">
+      <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl relative overflow-hidden animate-modal-pop">
+        <div className="px-8 py-6 border-b border-[#27272a] bg-[#0f0f13] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+             <UserCog size={20} className="text-indigo-400" />
+             <h3 className="font-bold text-xl text-white tracking-tight">Meu Perfil</h3>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl text-neutral-500 hover:text-white transition-colors"><X size={20}/></button>
+        </div>
+        
+        <div className="p-8 flex flex-col gap-6">
+          <div className="flex flex-col items-center gap-4 mb-2">
+             <div className="w-24 h-24 rounded-[20px] bg-black border border-[#27272a] flex items-center justify-center text-3xl font-bold text-indigo-400 shadow-xl overflow-hidden relative group">
+                {currentAvatar ? <img src={currentAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+             </div>
+             <p className="text-sm font-bold text-white">{user.name}</p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">URL da Fotografia de Perfil</label>
+            <input value={avatarInput} onChange={e => setAvatarInput(e.target.value)} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="https://site.com/sua-foto.jpg" />
+            <p className="text-[10px] text-neutral-600 mt-1 ml-1">Cole o link (URL) direto de uma imagem online.</p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Nova Senha</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="Deixe em branco para manter" />
+          </div>
+        </div>
+        
+        <div className="px-8 py-5 border-t border-[#27272a] bg-[#0f0f13] flex items-center justify-end">
+          <button onClick={handleSave} disabled={isLoading} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)]">
+            {isLoading ? "Salvando..." : "Salvar Alterações"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SidebarBtn({ icon, active, onClick, tooltip, alert }) {
+  return (
+    <button onClick={onClick} className={`w-12 h-12 rounded-[14px] flex items-center justify-center transition-all relative group ${active ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'bg-transparent text-neutral-500 hover:bg-white/5 hover:text-white'}`}>
+      {icon}
+      {alert && <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
+      <span className="absolute left-16 bg-black text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-md opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all pointer-events-none z-50 border border-white/10 whitespace-nowrap shadow-xl">
+        {tooltip}
+      </span>
+    </button>
+  );
+}
+
+function MobileNavBtn({ icon, active, onClick, alert }) {
+  return (
+    <button onClick={onClick} className={`p-3 rounded-xl flex items-center justify-center transition-all relative ${active ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'text-neutral-500 hover:text-white'}`}>
+      {icon}
+      {alert && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
+    </button>
+  );
+}
 
 function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }) {
   return (
-    <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] ${isClosing ? 'fade-out' : 'fade-in'}`}>
-      <div className={`bg-[#161821] border border-[#2a2d3d] rounded-3xl shadow-2xl flex flex-col overflow-hidden w-full ${isClosing ? 'animate-modal-out' : 'animate-modal-pop'} ${fullWidth ? 'max-w-7xl h-[90vh]' : 'max-w-4xl max-h-[90vh]'}`}>
-        <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
-           <div className="flex items-center gap-3">
-             <div className="p-2 bg-indigo-500/10 rounded-xl hidden sm:block">{icon}</div>
-             <h2 className="text-lg font-bold text-white">{title}</h2>
+    <div className={`fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-[60] ${isClosing ? 'fade-out' : 'fade-in'}`}>
+      <div className={`bg-[#12121a] border border-[#27272a] rounded-[32px] shadow-2xl flex flex-col overflow-hidden w-full ${isClosing ? 'animate-modal-out' : 'animate-modal-pop'} ${fullWidth ? 'max-w-7xl h-[90vh]' : 'max-w-4xl max-h-[85vh]'}`}>
+        <div className="px-6 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
+           <div className="flex items-center gap-4">
+             <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 hidden sm:block">{icon}</div>
+             <h2 className="text-xl font-bold text-white tracking-tight">{title}</h2>
            </div>
-           <button onClick={onClose} className="p-2 rounded-xl text-neutral-500 hover:bg-[#2a2d3d] hover:text-white transition-colors shrink-0"><X size={20}/></button>
+           <button onClick={onClose} className="p-2.5 rounded-xl text-neutral-500 hover:bg-white/5 hover:text-white transition-colors shrink-0"><X size={20}/></button>
         </div>
-        <div className="flex-1 overflow-y-auto kp-scroll p-4 sm:p-6 bg-[#0f1015]">
+        <div className="flex-1 overflow-y-auto kp-scroll p-6 sm:p-8 bg-[#09090b]">
           {children}
         </div>
       </div>
@@ -992,45 +1225,14 @@ function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }) 
   )
 }
 
-function HeaderBtn({ icon, label, active, onClick, color = "neutral" }) {
-  const colors = {
-    amber: "bg-amber-500 text-amber-950 hover:bg-amber-400",
-    indigo: "bg-indigo-500 text-white hover:bg-indigo-400 shadow-indigo-500/20",
-    purple: "bg-purple-500 text-white hover:bg-purple-400 shadow-purple-500/20",
-    blue: "bg-blue-500 text-white hover:bg-blue-400 shadow-blue-500/20",
-    neutral: "bg-[#2a2d3d] text-white hover:bg-[#3f4359]"
-  };
-  const activeClass = active ? colors[color] + " shadow-lg" : "bg-transparent border border-transparent text-neutral-400 hover:bg-[#2a2d3d] hover:text-white";
-  return (
-    <button onClick={onClick} className={`flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-wider px-4 py-3 md:py-2 rounded-xl transition-all whitespace-nowrap shrink-0 ${activeClass}`}>
-      {icon} {label}
-    </button>
-  );
-}
-
-function SmallBtn({ icon, label, onClick, tone, active }) {
-  const tones = {
-    red: "border-red-500/20 text-red-500 hover:bg-red-500/10",
-    amber: "border-amber-500/20 text-amber-500 hover:bg-amber-500/10",
-    green: "border-green-500/20 text-green-500 hover:bg-green-500/10",
-    neutral: "border-[#3f4359] text-neutral-400 hover:bg-[#2a2d3d] hover:text-neutral-200"
-  };
-  const activeClass = "bg-amber-500/15 border-amber-500/30 text-amber-400";
-  return (
-    <button onClick={onClick} className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tighter px-3 py-2.5 md:py-1.5 rounded-lg border transition-all ${active ? activeClass : tones[tone || 'neutral']}`}>
-      {icon} {label}
-    </button>
-  );
-}
-
 function FilterSelect({ value, onChange, options, defaultLabel }) {
   return (
     <div className="relative flex items-center shrink-0">
-      <select value={value || 'all'} onChange={(e) => onChange(e.target.value)} className="appearance-none text-[11px] font-bold bg-[#161821] border border-[#2a2d3d] rounded-xl pl-3 pr-8 py-3 md:py-2 text-neutral-400 outline-none focus:border-indigo-500 cursor-pointer transition-all hover:border-[#3f4359] shadow-sm">
+      <select value={value || 'all'} onChange={(e) => onChange(e.target.value)} className="appearance-none text-[11px] font-bold bg-transparent border-none pl-1 pr-6 py-1 text-neutral-300 outline-none cursor-pointer transition-all hover:text-white">
         <option value="all">{defaultLabel}</option>
         {options.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
       </select>
-      <ChevronDown size={14} className="absolute right-2.5 text-neutral-600 pointer-events-none" />
+      <ChevronDown size={14} className="absolute right-0 text-neutral-600 pointer-events-none" />
     </div>
   );
 }
@@ -1040,45 +1242,45 @@ function CustomSelect({ label, value, onChange, options, hasError, required }) {
     <div className="w-full">
       <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">{label} {required && <span className="text-red-500">*</span>}</label>
       <div className="relative flex items-center">
-        <select value={value || ''} onChange={onChange} className={`appearance-none w-full bg-[#0f1015] border rounded-xl pl-4 pr-10 py-3.5 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500 transition-all cursor-pointer ${hasError ? 'border-red-500' : 'border-[#2a2d3d]'}`}>
+        <select value={value || ''} onChange={onChange} className={`appearance-none w-full bg-[#09090b] border rounded-xl pl-4 pr-10 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all cursor-pointer shadow-sm ${hasError ? 'border-red-500' : 'border-[#27272a]'}`}>
           {options}
         </select>
-        <ChevronDown size={16} className="absolute right-3 text-neutral-600 pointer-events-none" />
+        <ChevronDown size={16} className="absolute right-4 text-neutral-600 pointer-events-none" />
       </div>
     </div>
   );
 }
 
-// --- Funções de Componentes Internos de Modais ---
+// --- Componentes Internos de Modais ---
 function TimerPanelContent({ tasks, now, getElapsed, onToggleTimer, user }) {
   const activeTasks = tasks.filter(t => (t.timerRunning || t.timerElapsed > 0) && t.responsibleId === user.id).sort((a,b) => b.timerRunning - a.timerRunning);
   return (
     <div className="flex flex-col h-full fade-in">
-      <p className="text-xs text-neutral-400 mb-6 text-center">Inicie o cronômetro num card do painel para acompanhar o tempo em tempo real aqui.</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <p className="text-sm text-neutral-400 mb-8 text-center max-w-lg mx-auto">Inicie o cronômetro diretamente num card do painel principal para acompanhar o tempo de execução aqui.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {activeTasks.length === 0 && (
-          <div className="col-span-full py-8 text-center text-sm text-neutral-500 border border-dashed border-[#2a2d3d] rounded-xl">
-            Nenhuma tarefa sua com tempo registado no momento.
+          <div className="col-span-full py-12 text-center text-sm text-neutral-600 border border-dashed border-[#27272a] rounded-3xl">
+            Nenhuma tarefa ativa neste momento.
           </div>
         )}
         {activeTasks.map(t => {
           const isDoneOrCancelled = t.status === "done" || t.status === "cancelled" || t.status === "formalize";
           return (
-            <div key={t.id} className="bg-[#161821] border border-[#2a2d3d] rounded-2xl p-5 flex flex-col items-center text-center relative overflow-hidden group hover:border-[#3f4359] transition-colors">
-              {t.timerRunning && <div className="absolute top-0 left-0 w-full h-1 bg-amber-500 animate-pulse" />}
-              <div className="text-[10px] font-bold uppercase px-3 py-1 rounded-full bg-[#0f1015] border border-[#2a2d3d] text-neutral-400 mb-3 truncate w-full">
+            <div key={t.id} className="bg-[#12121a] border border-[#27272a] rounded-3xl p-6 flex flex-col items-center text-center relative overflow-hidden group hover:border-[#3f3f46] transition-colors shadow-sm">
+              {t.timerRunning && <div className="absolute top-0 left-0 w-full h-1 bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]" />}
+              <div className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-neutral-400 mb-4 truncate w-full">
                 {COLUMNS.find(c=>c.id === t.status)?.name}
               </div>
-              <h3 className={`font-semibold text-sm mb-4 truncate w-full ${isDoneOrCancelled ? 'text-neutral-500 line-through' : 'text-neutral-200'}`} title={t.title}>{t.title}</h3>
-              <div className={`text-4xl font-mono font-light mb-6 tracking-wider ${t.timerRunning ? 'text-amber-400 drop-shadow-md' : 'text-white'}`}>
+              <h3 className={`font-bold text-base mb-5 truncate w-full ${isDoneOrCancelled ? 'text-neutral-500 line-through' : 'text-white'}`} title={t.title}>{t.title}</h3>
+              <div className={`text-5xl font-mono font-light mb-8 tracking-wider ${t.timerRunning ? 'text-amber-400 drop-shadow-md' : 'text-white'}`}>
                 {formatTime(getElapsed(t))}
               </div>
               {!isDoneOrCancelled ? (
-                <button onClick={() => onToggleTimer(t.id)} className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold uppercase tracking-wider text-[11px] transition-colors ${t.timerRunning ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 shadow-lg shadow-amber-500/10' : 'bg-[#2a2d3d] text-neutral-300 hover:bg-[#3f4359]'}`}>
+                <button onClick={() => onToggleTimer(t.id)} className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-all ${t.timerRunning ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-white/5 text-neutral-300 hover:bg-white/10 border border-white/10'}`}>
                   {t.timerRunning ? <><Square size={14}/> Parar Tempo</> : <><Play size={14}/> Iniciar Tempo</>}
                 </button>
               ) : (
-                <div className="w-full flex items-center justify-center py-3 rounded-xl font-bold uppercase tracking-wider text-[11px] bg-[#0f1015] border border-[#2a2d3d] text-neutral-600">
+                <div className="w-full flex items-center justify-center py-4 rounded-xl font-bold uppercase tracking-widest text-[11px] bg-black/40 border border-white/5 text-neutral-600">
                   Card Fechado
                 </div>
               )}
@@ -1118,35 +1320,35 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
   return (
     <div className="flex flex-col h-full fade-in">
       {user.isAdmin && (
-        <div className="bg-[#161821] p-5 rounded-3xl border border-[#2a2d3d] mb-6 flex flex-col sm:flex-row gap-4 sm:items-end shadow-sm">
+        <div className="bg-[#12121a] p-6 rounded-3xl border border-[#27272a] mb-8 flex flex-col sm:flex-row gap-5 sm:items-end shadow-sm">
           <div className="w-full sm:flex-1">
-            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 mb-1.5 block ml-1">Nome Completo</label>
-            <input value={name || ''} onChange={e=>setName(e.target.value)} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500" placeholder="Ex: João da Silva" />
+            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 mb-2 block ml-1">Nome Completo</label>
+            <input value={name || ''} onChange={e=>setName(e.target.value)} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="Ex: João da Silva" />
           </div>
           <div className="w-full sm:flex-1">
-            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 mb-1.5 block ml-1">Senha Inicial</label>
-            <input type="password" value={password || ''} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key === 'Enter' && add()} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500" placeholder="Ex: lumina123" />
+            <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 mb-2 block ml-1">Senha Inicial</label>
+            <input type="password" value={password || ''} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key === 'Enter' && add()} className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="Ex: lumina123" />
           </div>
-          <button onClick={add} className="w-full sm:w-auto h-[48px] sm:h-[42px] px-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shrink-0 shadow-lg shadow-indigo-600/20"><Plus size={16}/> Criar</button>
+          <button onClick={add} className="w-full sm:w-auto h-[52px] sm:h-[48px] px-8 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shrink-0 shadow-[0_0_15px_rgba(79,70,229,0.3)]"><Plus size={16}/> Criar</button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {responsibles.map(r => {
           const count = tasks.filter(t => t.responsibleId === r.id).length;
           return (
-            <div key={r.id} className="flex items-center justify-between gap-4 bg-[#161821] border border-[#2a2d3d] rounded-2xl p-4 group hover:border-[#3f4359] transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-[#0f1015] rounded-xl border border-[#2a2d3d]">
-                  <User size={16} className={r.name.toLowerCase() === 'othávio campbell' ? "text-amber-400" : "text-indigo-400"} />
+            <div key={r.id} className="flex items-center justify-between gap-4 bg-[#12121a] border border-[#27272a] rounded-2xl p-5 group hover:border-indigo-500/50 transition-all shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                  <User size={18} className={r.name.toLowerCase() === 'othávio campbell' ? "text-amber-400" : "text-indigo-400"} />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-neutral-200">{r.name}</span>
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">{count} Tarefas Ativas</span>
+                  <span className="text-base font-bold text-neutral-100">{r.name}</span>
+                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-0.5">{count} Demandas</span>
                 </div>
               </div>
               {(user.isAdmin || r.id === user.id) && (
-                 <button onClick={() => remove(r.id)} className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors sm:opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+                 <button onClick={() => remove(r.id)} className="p-2.5 text-neutral-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors sm:opacity-0 group-hover:opacity-100"><Trash2 size={18}/></button>
               )}
             </div>
           )
@@ -1163,110 +1365,65 @@ function ClientModal({ modal, setModal, setClients }) {
 
   const handleAddEmail = () => {
     if (!newEmail.trim()) return;
-    if (!newEmail.includes("@")) {
-      setValidationError("Insira um e-mail válido.");
-      return;
-    }
+    if (!newEmail.includes("@")) { setValidationError("Insira um e-mail válido."); return; }
     setForm(prev => ({ ...prev, emails: [...(prev.emails || []), newEmail.trim()] }));
-    setNewEmail("");
-    setValidationError(null);
+    setNewEmail(""); setValidationError(null);
   };
 
-  const handleRemoveEmail = (index) => {
-    setForm(prev => ({ ...prev, emails: (prev.emails || []).filter((_, i) => i !== index) }));
-  };
+  const handleRemoveEmail = (index) => { setForm(prev => ({ ...prev, emails: (prev.emails || []).filter((_, i) => i !== index) })); };
 
   const saveClient = () => {
-    if (!form.name || !form.name.trim()) {
-      setValidationError("O nome do cliente é obrigatório.");
-      return;
-    }
-
-    if (modal.mode === "add") {
-      setClients(prev => [...prev, { ...form, id: 'c' + Date.now() }]);
-    } else {
-      setClients(prev => prev.map(c => c.id === form.id ? form : c));
-    }
+    if (!form.name || !form.name.trim()) { setValidationError("O nome do cliente é obrigatório."); return; }
+    if (modal.mode === "add") { setClients(prev => [...prev, { ...form, id: 'c' + Date.now() }]); } else { setClients(prev => prev.map(c => c.id === form.id ? form : c)); }
     setModal(null);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[70] fade-in">
-      <div className="w-full max-w-md rounded-3xl bg-[#161821] border border-[#2a2d3d] flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
-        <div className="px-6 py-5 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
-          <h3 className="font-bold text-lg text-white">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
-          <button onClick={() => setModal(null)} className="p-2 sm:p-1.5 rounded-lg text-neutral-500 hover:text-white hover:bg-[#2a2d3d] transition-colors"><X size={20} /></button>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[70] fade-in">
+      <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
+        <div className="px-8 py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
+          <h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
+          <button onClick={() => setModal(null)} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button>
         </div>
         
-        <div className="p-6 flex flex-col gap-5">
+        <div className="p-8 flex flex-col gap-6 bg-[#09090b]">
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Nome da Empresa *</label>
-            <input 
-              autoFocus 
-              value={form.name || ''} 
-              onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationError(null); }} 
-              className={`w-full bg-[#0f1015] border rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors ${validationError && String(validationError).includes("nome") ? "border-red-500" : "border-[#2a2d3d]"}`} 
-              placeholder="Ex: Acme Corp" 
-            />
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Nome da Empresa *</label>
+            <input autoFocus value={form.name || ''} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationError(null); }} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-purple-500 transition-colors ${validationError && String(validationError).includes("nome") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Ex: Acme Corp" />
           </div>
 
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Teto de Horas Contratadas (Mensal)</label>
-            <input 
-              type="number"
-              value={form.contractedHours || ''} 
-              onChange={(e) => setForm({ ...form, contractedHours: e.target.value })} 
-              className={`w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors`} 
-              placeholder="Ex: 50" 
-            />
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Teto de Horas Contratadas (Mensal)</label>
+            <input type="number" value={form.contractedHours || ''} onChange={(e) => setForm({ ...form, contractedHours: e.target.value })} className={`w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-purple-500 transition-colors`} placeholder="Ex: 50" />
           </div>
           
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">E-mails (Contactos)</label>
-            <div className="flex flex-col sm:flex-row items-center gap-2 mb-3">
-              <input 
-                value={newEmail || ''} 
-                onChange={e => setNewEmail(e.target.value)} 
-                onKeyDown={e => e.key === 'Enter' && handleAddEmail()}
-                className="w-full sm:flex-1 bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-purple-500 transition-colors" 
-                placeholder="Ex: gestor@empresa.com" 
-              />
-              <button 
-                onClick={handleAddEmail} 
-                className="w-full sm:w-auto justify-center px-4 py-3 sm:py-2.5 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 shrink-0"
-              >
-                <Plus size={16}/> Adicionar
-              </button>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">E-mails (Contatos)</label>
+            <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+              <input value={newEmail || ''} onChange={e => setNewEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddEmail()} className="w-full sm:flex-1 bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-purple-500 transition-colors" placeholder="Ex: gestor@empresa.com" />
+              <button onClick={handleAddEmail} className="w-full sm:w-auto justify-center px-6 py-4 sm:py-3.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 shrink-0"><Plus size={16}/> Add</button>
             </div>
 
             <div className="flex flex-col gap-2 max-h-32 overflow-y-auto kp-scroll pr-1">
-              {(!form.emails || form.emails.length === 0) && (
-                <div className="text-center text-xs text-neutral-600 py-4 border border-dashed border-[#2a2d3d] rounded-xl">
-                  Nenhum e-mail adicionado.
-                </div>
-              )}
+              {(!form.emails || form.emails.length === 0) && <div className="text-center text-xs text-neutral-600 py-6 border border-dashed border-[#27272a] rounded-2xl">Nenhum e-mail adicionado.</div>}
               {form.emails && form.emails.map((email, index) => (
-                <div key={index} className="flex items-center justify-between bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2">
-                  <div className="flex items-center gap-2 text-sm text-neutral-300">
-                    <Mail size={16} className="text-purple-400" /> {email}
-                  </div>
-                  <button onClick={() => handleRemoveEmail(index)} className="p-2 sm:p-1.5 text-neutral-500 hover:text-red-500 transition-colors">
-                    <X size={16} />
-                  </button>
+                <div key={index} className="flex items-center justify-between bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-3 text-sm text-neutral-300"><Mail size={16} className="text-purple-400" /> {email}</div>
+                  <button onClick={() => handleRemoveEmail(index)} className="p-2 text-neutral-500 hover:text-red-500 transition-colors"><X size={16} /></button>
                 </div>
               ))}
             </div>
           </div>
         </div>
         
-        <div className="px-6 py-5 border-t border-[#2a2d3d] flex items-center justify-end gap-3 bg-[#1a1c24]">
-          <button onClick={() => setModal(null)} className="flex-1 sm:flex-none text-xs font-bold uppercase tracking-widest px-4 py-3 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
-          <button onClick={saveClient} className="flex-1 sm:flex-none text-xs font-black uppercase tracking-[0.15em] px-8 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-lg shadow-purple-600/20">Salvar Cliente</button>
+        <div className="px-8 py-6 border-t border-[#27272a] flex items-center justify-end gap-3 bg-[#0f0f13]">
+          <button onClick={() => setModal(null)} className="flex-1 sm:flex-none text-xs font-bold uppercase tracking-widest px-5 py-4 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
+          <button onClick={saveClient} className="flex-1 sm:flex-none text-xs font-black uppercase tracking-[0.15em] px-8 py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)]">Salvar Cliente</button>
         </div>
       </div>
       
       {validationError && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 fade-in z-[80] font-bold text-xs uppercase tracking-wider w-11/12 max-w-sm">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 fade-in z-[80] font-bold text-xs uppercase tracking-wider w-11/12 max-w-sm">
           <AlertTriangle size={18} className="shrink-0" /> {String(validationError)}
         </div>
       )}
@@ -1296,16 +1453,16 @@ function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getEl
   return (
     <div className="flex flex-col h-full fade-in relative">
       {user.isAdmin && (
-         <div className="flex justify-end mb-4">
-           <button onClick={openAdd} className="w-full sm:w-auto px-6 py-3.5 sm:py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
+         <div className="flex justify-end mb-6">
+           <button onClick={openAdd} className="w-full sm:w-auto px-8 py-4 sm:py-3.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(147,51,234,0.3)]">
              <Plus size={16}/> Criar Cliente
            </button>
          </div>
       )}
       
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 gap-4">
         {clients.length === 0 && (
-          <div className="text-center text-sm text-neutral-500 py-12 border border-dashed border-[#2a2d3d] rounded-2xl">
+          <div className="text-center text-sm text-neutral-500 py-16 border border-dashed border-[#27272a] rounded-[24px]">
             A sua carteira de clientes está vazia.
           </div>
         )}
@@ -1319,26 +1476,26 @@ function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getEl
           const isNearLimit = remaining !== null && remaining <= 5;
           
           return (
-            <div key={c.id} onClick={() => openEdit(c)} className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#161821] border border-[#2a2d3d] rounded-2xl p-5 hover:border-purple-500/50 transition-all cursor-pointer gap-4 sm:gap-0 shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-[#0f1015] rounded-xl border border-[#2a2d3d]"><Building2 size={20} className="text-purple-400" /></div>
+            <div key={c.id} onClick={() => openEdit(c)} className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#12121a] border border-[#27272a] rounded-[20px] p-6 hover:border-purple-500/50 transition-all cursor-pointer gap-5 sm:gap-0 shadow-sm relative group">
+              <div className="flex items-center gap-5">
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:border-purple-500/30 transition-colors"><Building2 size={24} className="text-purple-400" /></div>
                 <div className="flex flex-col">
-                  <span className="text-base font-bold text-neutral-100">{c.name}</span>
-                  <span className="text-[11px] text-neutral-500 mt-1 uppercase tracking-wider font-bold">
-                    {c.contractedHours ? <span className="text-indigo-400">Teto: {c.contractedHours}h | </span> : ''} {emailsArray.length === 0 ? "0 E-mails" : `${emailsArray.length} E-mail(s)`} • {count} Demandas
+                  <span className="text-lg font-bold text-neutral-100 group-hover:text-purple-400 transition-colors">{c.name}</span>
+                  <span className="text-xs text-neutral-500 mt-1 uppercase tracking-widest font-bold">
+                    {c.contractedHours ? <span className="text-indigo-400">Teto: {c.contractedHours}h | </span> : ''} {emailsArray.length === 0 ? "0 E-mails" : `${emailsArray.length} Contato(s)`} • {count} Demandas
                   </span>
                 </div>
               </div>
               
               <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3">
                 {isNearLimit && (
-                  <a href={generateLimitEmailLink(c, hours)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-3 sm:py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/20 transition-colors shrink-0">
+                  <a href={generateLimitEmailLink(c, hours)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-5 py-3.5 sm:py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-colors shrink-0 shadow-sm">
                     <AlertTriangle size={14}/> Aviso ({remaining.toFixed(1)}h)
                   </a>
                 )}
                 {user.isAdmin && (
-                   <button onClick={(e) => { e.stopPropagation(); remove(c.id); }} className="p-3 sm:p-2 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors sm:opacity-0 group-hover:opacity-100">
-                     <Trash2 size={18} />
+                   <button onClick={(e) => { e.stopPropagation(); remove(c.id); }} className="p-3.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors sm:opacity-0 group-hover:opacity-100 z-10 relative">
+                     <Trash2 size={20} />
                    </button>
                 )}
               </div>
@@ -1384,23 +1541,23 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
       <div className="flex flex-col h-full fade-in">
         
         {/* Toggle View */}
-        <div className="flex justify-center mb-6 shrink-0">
-          <div className="bg-[#161821] border border-[#2a2d3d] p-1 rounded-xl flex gap-1">
-             <button onClick={() => setActiveView('internal')} className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeView === 'internal' ? 'bg-[#2a2d3d] text-white shadow-sm' : 'text-neutral-500 hover:text-white'}`}>Relatórios do Sistema</button>
-             <button onClick={() => setActiveView('looker')} className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${activeView === 'looker' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-neutral-500 hover:text-white'}`}><MonitorPlay size={14}/> Looker Studio</button>
+        <div className="flex justify-center mb-8 shrink-0">
+          <div className="bg-[#12121a] border border-[#27272a] p-1.5 rounded-2xl flex gap-2">
+             <button onClick={() => setActiveView('internal')} className={`px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeView === 'internal' ? 'bg-[#27272a] text-white shadow-sm' : 'text-neutral-500 hover:text-white'}`}>Sistema Interno</button>
+             <button onClick={() => setActiveView('looker')} className={`px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2 ${activeView === 'looker' ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'text-neutral-500 hover:text-white'}`}><MonitorPlay size={16}/> Looker Studio</button>
           </div>
         </div>
 
-        {/* View 1: Relatórios do Sistema (Antigo ReportsPanel) */}
+        {/* View 1: Relatórios Internos */}
         {activeView === 'internal' && (
-           <div className="flex flex-col gap-6 fade-in h-full">
+           <div className="flex flex-col gap-8 fade-in h-full">
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-1">Por Status</h3><div className="flex flex-col gap-2">{COLUMNS.map(col => { const count = tasks.filter(t => t.status === col.id).length; return (<div key={col.id} className="flex justify-between items-center bg-[#161821] border border-[#2a2d3d] p-4 rounded-xl shadow-sm"><div className="flex items-center gap-3"><span className={`w-2.5 h-2.5 rounded-full ${col.dot}`} /><span className="text-xs text-neutral-300 font-bold uppercase">{col.name}</span></div><span className="text-base font-black text-white">{count}</span></div>)})}</div></div>
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-1">Por Responsável</h3><div className="flex flex-col gap-2">{responsibles.map(r => { const rTasks = tasks.filter(t => t.responsibleId === r.id); const hours = rTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={r.id} className="bg-[#161821] border border-[#2a2d3d] p-4 rounded-xl shadow-sm"><div className="text-sm text-neutral-200 font-bold mb-1">{r.name}</div><div className="flex items-center gap-3 text-[10px] text-neutral-500 font-bold uppercase tracking-wider"><span>{rTasks.length} Tarefas</span><span>{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-1">Por Cliente</h3><div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto kp-scroll pr-2">{clients.map(c => { const cTasks = tasks.filter(t => t.clientId === c.id); if (cTasks.length === 0) return null; const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={c.id} className="bg-[#161821] border border-[#2a2d3d] p-4 rounded-xl shadow-sm"><div className="text-sm text-neutral-200 font-bold mb-1">{c.name}</div><div className="flex items-center gap-3 text-[10px] text-neutral-500 font-bold uppercase tracking-wider"><span>{cTasks.length} Tarefas</span><span>{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Fase do Fluxo</h3><div className="flex flex-col gap-3">{COLUMNS.map(col => { const count = tasks.filter(t => t.status === col.id).length; return (<div key={col.id} className="flex justify-between items-center bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="flex items-center gap-4"><span className={`w-3 h-3 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} /><span className="text-xs text-neutral-300 font-bold uppercase">{col.name}</span></div><span className="text-lg font-black text-white">{count}</span></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Responsável</h3><div className="flex flex-col gap-3">{responsibles.map(r => { const rTasks = tasks.filter(t => t.responsibleId === r.id); const hours = rTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={r.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{r.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{rTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
+                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Cliente</h3><div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto kp-scroll pr-2">{clients.map(c => { const cTasks = tasks.filter(t => t.clientId === c.id); if (cTasks.length === 0) return null; const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0); return (<div key={c.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{c.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{cTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
              </div>
-             <div className="flex justify-center mt-auto pt-6 border-t border-[#2a2d3d]">
-                <button onClick={exportTasksCSV} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-green-600/10 text-green-400 border border-green-500/30 hover:bg-green-600/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"><Download size={16}/> Baixar Exportação (CSV)</button>
+             <div className="flex justify-center mt-auto pt-8 border-t border-[#27272a]">
+                <button onClick={exportTasksCSV} className="w-full md:w-auto flex items-center justify-center gap-2 px-10 py-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all shadow-sm"><Download size={18}/> Baixar Dados (CSV)</button>
              </div>
            </div>
         )}
@@ -1409,25 +1566,28 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
         {activeView === 'looker' && (
           <div className="flex-1 flex flex-col min-h-0 h-full fade-in">
             {(!url || isEditing) ? (
-               <div className="flex-1 flex flex-col items-center justify-center max-w-xl mx-auto w-full text-center gap-6">
-                 <div className="w-20 h-20 rounded-3xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-2xl shadow-blue-500/10"><BarChart3 size={32} /></div>
+               <div className="flex-1 flex flex-col items-center justify-center max-w-xl mx-auto w-full text-center gap-8">
+                 <div className="w-24 h-24 rounded-[32px] bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.15)]"><BarChart3 size={40} /></div>
                  <div>
-                   <h3 className="text-2xl font-bold text-white mb-2">Painel do Cliente</h3>
-                   <p className="text-sm text-neutral-400 leading-relaxed">Siga o passo a passo no Guia de Integração para gerar o URL de Incorporação (Embed) do Looker Studio e cole-o abaixo.</p>
+                   <h3 className="text-3xl font-bold text-white mb-3 tracking-tight">Painel do Cliente</h3>
+                   <p className="text-sm text-neutral-400 leading-relaxed max-w-md mx-auto">Siga o passo a passo no Guia de Integração para gerar o URL de Incorporação (Embed) do Looker Studio e cole-o abaixo.</p>
                  </div>
                  <div className="w-full">
-                    <input value={inputUrl} onChange={e => setInputUrl(e.target.value)} placeholder="https://lookerstudio.google.com/embed/reporting/..." className="w-full bg-[#161821] border border-[#2a2d3d] rounded-2xl px-6 py-4 text-sm text-white outline-none focus:border-blue-500 text-center shadow-inner mb-4" />
-                    <button onClick={saveUrl} className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-widest text-xs transition-all shadow-lg shadow-blue-600/20">Ligar Relatório</button>
+                    <input value={inputUrl} onChange={e => setInputUrl(e.target.value)} placeholder="https://lookerstudio.google.com/embed/reporting/..." className="w-full bg-[#12121a] border border-[#27272a] rounded-2xl px-6 py-5 text-sm text-white outline-none focus:border-blue-500 text-center shadow-inner mb-5" />
+                    <button onClick={saveUrl} className="w-full py-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase tracking-widest text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">Ligar Relatório</button>
                  </div>
                  {url && <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-neutral-500 uppercase tracking-widest hover:text-white mt-2">Cancelar</button>}
                </div>
             ) : (
-               <div className="flex flex-col h-full gap-4">
+               <div className="flex flex-col h-full gap-5">
                  <div className="flex justify-end shrink-0">
-                    <button onClick={() => {setInputUrl(url); setIsEditing(true);}} className="flex justify-center items-center gap-2 px-5 py-2.5 bg-[#2a2d3d] text-neutral-300 hover:bg-[#3f4359] rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"><Settings size={14}/> Trocar URL do Looker</button>
+                    <button onClick={() => {setInputUrl(url); setIsEditing(true);}} className="flex justify-center items-center gap-2 px-6 py-3.5 bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"><Settings size={16}/> Trocar Conexão Looker</button>
                  </div>
-                 <div className="flex-1 w-full bg-[#161821] rounded-2xl border border-[#2a2d3d] overflow-hidden relative shadow-inner">
-                   <div className="absolute inset-0 flex items-center justify-center -z-10"><Cloud size={32} className="text-[#2a2d3d] animate-pulse" /></div>
+                 <div className="flex-1 w-full bg-[#12121a] rounded-[32px] border border-[#27272a] overflow-hidden relative shadow-inner">
+                   <div className="absolute inset-0 flex flex-col gap-4 items-center justify-center -z-10">
+                     <Cloud size={40} className="text-indigo-500/20 animate-pulse" />
+                     <span className="text-xs font-bold uppercase tracking-widest text-neutral-600">A Carregar Looker...</span>
+                   </div>
                    <iframe src={url} className="w-full h-full border-0 bg-transparent z-10 relative" allowFullScreen />
                  </div>
                </div>
@@ -1456,11 +1616,16 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
   const [copiedNotionId, setCopiedNotionId] = useState(null);
   const [meetingData, setMeetingData] = useState({});
 
+  // Separação Inteligente: Finalizadas vs Andamento (Excluindo Backlog, Cancelados e Todo da prop 'tasks' já filtrada)
   const tasksByClient = useMemo(() => {
     return tasks.reduce((acc, task) => {
       const cId = task.clientId || 'no_client';
-      if (!acc[cId]) acc[cId] = [];
-      acc[cId].push(task);
+      if (!acc[cId]) acc[cId] = { done: [], inProgress: [] };
+      if (task.status === 'done' || task.status === 'formalize') {
+        acc[cId].done.push(task);
+      } else if (['inprogress', 'paused', 'waiting', 'review'].includes(task.status)) {
+        acc[cId].inProgress.push(task);
+      }
       return acc;
     }, {});
   }, [tasks]);
@@ -1478,16 +1643,28 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
       body += `Segue o resumo da reunião de overview`;
       if (dateStr) body += ` realizada a ${dateStr}`;
       body += `, com os principais pontos discutidos e o estado das demandas:\n\n`;
-      if (mData?.link) body += `🔗 Acesso à reunião gravada: ${mData.link}\n\n`;
+      if (mData?.link) body += `Link da gravação: ${mData.link}\n\n`;
     } else {
       body += `Segue o resumo semanal com os principais pontos e o estado das demandas:\n\n`;
     }
 
-    clientTasks.forEach(t => {
-      body += `• ${t.title}\n`;
-      if (t.description) body += `  ${t.description}\n`;
-      body += `\n`;
-    });
+    if (clientTasks.done.length > 0) {
+      body += `Demandas Finalizadas:\n`;
+      clientTasks.done.forEach(t => {
+        body += `- ${t.title}\n`;
+        if (t.description) body += `  ${t.description}\n`;
+        body += `\n`;
+      });
+    }
+
+    if (clientTasks.inProgress.length > 0) {
+      body += `Demandas em Andamento:\n`;
+      clientTasks.inProgress.forEach(t => {
+        body += `- ${t.title}\n`;
+        if (t.description) body += `  ${t.description}\n`;
+        body += `\n`;
+      });
+    }
 
     body += `Em caso de dúvidas, continuo à disposição.\n\nCom os melhores cumprimentos,`;
     return body;
@@ -1511,11 +1688,22 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
 
   const handleCopyNotion = (clientTasks, clientId) => {
     let text = "";
-    clientTasks.forEach(t => {
-      const timeMin = t.timerElapsed > 0 ? Math.round(t.timerElapsed / 60) : (t.durationMin || 0);
-      const dateStr = t.dueDate ? t.dueDate.split('-').reverse().join('/') : 'Sem data';
-      text += `• ${t.title}\n  Tempo: ${timeMin} min\n  Data: ${dateStr}\n\n`;
-    });
+    if (clientTasks.done.length > 0) {
+      text += "CONCLUÍDAS\n\n";
+      clientTasks.done.forEach(t => {
+        const timeMin = t.timerElapsed > 0 ? Math.round(t.timerElapsed / 60) : (t.durationMin || 0);
+        const dateStr = t.dueDate ? t.dueDate.split('-').reverse().join('/') : 'Sem data';
+        text += `- ${t.title}\n  Descrição: ${t.description || 'Sem descrição'}\n  Tempo: ${timeMin} min\n  Data: ${dateStr}\n\n`;
+      });
+    }
+    if (clientTasks.inProgress.length > 0) {
+      text += "EM ANDAMENTO\n\n";
+      clientTasks.inProgress.forEach(t => {
+        const timeMin = t.timerElapsed > 0 ? Math.round(t.timerElapsed / 60) : (t.durationMin || 0);
+        const dateStr = t.dueDate ? t.dueDate.split('-').reverse().join('/') : 'Sem data';
+        text += `- ${t.title}\n  Descrição: ${t.description || 'Sem descrição'}\n  Tempo: ${timeMin} min\n  Data: ${dateStr}\n\n`;
+      });
+    }
     navigator.clipboard.writeText(text);
     setCopiedNotionId(clientId);
     setTimeout(() => setCopiedNotionId(null), 2000);
@@ -1523,108 +1711,128 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[80] fade-in">
-      <div className="w-full max-w-3xl rounded-3xl bg-[#161821] border border-[#2a2d3d] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop">
+      <div className="w-full max-w-4xl rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop">
         
-        <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-500/10 rounded-xl hidden sm:block text-purple-400"><Mail size={20} /></div>
+        <div className="px-6 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-indigo-500/10 rounded-xl hidden sm:block text-indigo-400 border border-indigo-500/20"><Mail size={24} /></div>
             <div>
-              <h3 className="font-bold text-base text-white">Fechamento Semanal</h3>
-              <p className="text-[10px] sm:text-[11px] text-neutral-400 mt-0.5">Dispare os e-mails e copie os relatórios para o Notion.</p>
+              <h3 className="font-bold text-xl text-white tracking-tight">Fechamento Semanal</h3>
+              <p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest font-bold">Dispare os e-mails e copie os relatórios para o Notion.</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 sm:p-1.5 rounded-lg text-neutral-500 hover:bg-[#2a2d3d] hover:text-white transition-colors shrink-0">
+          <button onClick={onClose} className="p-2.5 rounded-xl text-neutral-500 hover:bg-white/5 hover:text-white transition-colors shrink-0">
             <X size={20} />
           </button>
         </div>
         
-        <div className="p-4 sm:p-6 overflow-y-auto kp-scroll flex flex-col gap-6 flex-1">
-          {Object.entries(tasksByClient).length === 0 && (
-             <div className="text-center text-sm text-neutral-500 py-8 border border-dashed border-[#2a2d3d] rounded-xl">
-               Nenhuma demanda pendente para formalizar.
+        <div className="p-6 sm:p-8 overflow-y-auto kp-scroll flex flex-col gap-8 flex-1 bg-[#09090b]">
+          {Object.keys(tasksByClient).length === 0 && (
+             <div className="text-center text-sm text-neutral-500 py-12 border border-dashed border-[#27272a] rounded-3xl">
+               Nenhuma demanda pendente para fechamento nesta semana.
              </div>
           )}
 
           {Object.entries(tasksByClient).map(([clientId, clientTasks]) => {
+            // Só renderiza cliente se ele tiver realmente alguma tarefa no andamento ou finalizada
+            if (clientTasks.done.length === 0 && clientTasks.inProgress.length === 0) return null;
+
             const clientData = clients.find(c => c.id === clientId);
             const clientName = clientData ? clientData.name : 'Sem Cliente Atribuído';
             const mData = meetingData[clientId] || { date: '', link: '' };
+            const totalTasksCount = clientTasks.done.length + clientTasks.inProgress.length;
             
             return (
-              <div key={clientId} className="bg-[#0f1015] border border-[#2a2d3d] rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4 border-b border-[#2a2d3d] pb-4">
-                  <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                    <Building2 size={16} className="text-purple-400" /> {clientName}
+              <div key={clientId} className="bg-[#12121a] border border-[#27272a] rounded-3xl p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-6 border-b border-[#27272a] pb-5">
+                  <h4 className="font-bold text-lg text-white flex items-center gap-3">
+                    <Building2 size={20} className="text-indigo-400" /> {clientName}
                   </h4>
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-[#161821] border border-[#2a2d3d] text-neutral-300 px-3 py-1 rounded-lg">
-                    {clientTasks.length} tarefas
+                  <span className="text-[10px] font-bold uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-300 px-3 py-1.5 rounded-lg">
+                    {totalTasksCount} Demandas
                   </span>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
                    <div className="w-full">
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest mb-1.5 block ml-1">Data da Reunião (Opcional)</label>
+                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest mb-2 block ml-1">Data da Reunião (Opcional)</label>
                       <input 
                          type="date" 
                          value={mData.date || ''} 
                          onChange={e => setMeetingData({...meetingData, [clientId]: {...mData, date: e.target.value}})} 
-                         className="w-full bg-[#161821] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-xs text-white outline-none focus:border-purple-500 [color-scheme:dark]" 
+                         className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark]" 
                       />
                    </div>
                    <div className="w-full">
-                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest mb-1.5 block ml-1">Link da Gravação (Opcional)</label>
+                      <label className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest mb-2 block ml-1">Link da Gravação (Opcional)</label>
                       <input 
                          type="text" 
                          value={mData.link || ''} 
                          onChange={e => setMeetingData({...meetingData, [clientId]: {...mData, link: e.target.value}})} 
-                         className="w-full bg-[#161821] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-xs text-white outline-none focus:border-purple-500" 
+                         className="w-full bg-[#09090b] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500" 
                          placeholder="Ex: meet.google.com/..." 
                       />
                    </div>
                 </div>
 
-                <div className="text-xs text-neutral-400 mb-5 max-h-32 overflow-y-auto pr-2 kp-scroll font-mono">
-                  {clientTasks.map(t => (
-                    <div key={t.id} className="mb-2">
-                      <div className="text-neutral-200 font-bold">• {t.title}</div>
-                      {t.description && <div className="pl-3 opacity-70 truncate">{t.description}</div>}
+                <div className="text-[13px] text-neutral-400 mb-8 max-h-48 overflow-y-auto pr-2 kp-scroll font-mono border border-[#27272a] p-4 rounded-2xl bg-[#09090b]">
+                  {clientTasks.done.length > 0 && (
+                    <div className="mb-5">
+                      <strong className="text-emerald-400 uppercase tracking-widest text-[10px] block mb-3 border-b border-emerald-500/20 pb-2">Demandas Finalizadas:</strong>
+                      {clientTasks.done.map(t => (
+                        <div key={t.id} className="mt-2 pl-2 border-l-2 border-emerald-500/30">
+                          <div className="text-neutral-200 font-bold">- {t.title}</div>
+                          {t.description && <div className="pl-3 opacity-60 line-clamp-2 mt-1 leading-relaxed text-[11px]">{t.description}</div>}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+                  {clientTasks.inProgress.length > 0 && (
+                    <div className="mb-2">
+                      <strong className="text-indigo-400 uppercase tracking-widest text-[10px] block mb-3 border-b border-indigo-500/20 pb-2">Demandas em Andamento:</strong>
+                      {clientTasks.inProgress.map(t => (
+                        <div key={t.id} className="mt-2 pl-2 border-l-2 border-indigo-500/30">
+                          <div className="text-neutral-200 font-bold">- {t.title}</div>
+                          {t.description && <div className="pl-3 opacity-60 line-clamp-2 mt-1 leading-relaxed text-[11px]">{t.description}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-[#2a2d3d] pt-5">
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-[#27272a] pt-6">
+                  <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                     <a 
                       href={generateEmailLink(clientTasks, clientData, mData)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-4 py-3 sm:py-2 bg-[#2a2d3d] hover:bg-[#3f4359] text-white rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors"
+                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-5 py-3.5 sm:py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)]"
                     >
-                      <Mail size={14} /> E-mail
+                      <Mail size={16} /> Abrir E-mail
                     </a>
                     
                     <button 
                       onClick={() => handleCopyText(clientTasks, clientId, mData)}
-                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-4 py-3 sm:py-2 bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20 border border-indigo-500/20 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors"
+                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-5 py-3.5 sm:py-3 bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
                     >
-                      {copiedId === clientId ? <Check size={14} /> : <Copy size={14} />} 
-                      {copiedId === clientId ? "Copiado!" : "Copiar (E-mail)"}
+                      {copiedId === clientId ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />} 
+                      {copiedId === clientId ? "Copiado!" : "Copiar Texto"}
                     </button>
 
                     <button 
                       onClick={() => handleCopyNotion(clientTasks, clientId)}
-                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-4 py-3 sm:py-2 bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors"
+                      className="flex-1 sm:flex-none justify-center inline-flex items-center gap-2 px-5 py-3.5 sm:py-3 bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
                     >
-                      {copiedNotionId === clientId ? <Check size={14} /> : <ClipboardList size={14} />} 
+                      {copiedNotionId === clientId ? <Check size={16} className="text-emerald-400" /> : <ClipboardList size={16} />} 
                       {copiedNotionId === clientId ? "Copiado!" : "Copiar (Notion)"}
                     </button>
                   </div>
 
                   <button 
                     onClick={() => onFormalize(clientId)}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2 bg-transparent border border-[#2a2d3d] text-neutral-400 hover:text-white hover:bg-[#2a2d3d] rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-transparent border border-[#27272a] text-neutral-400 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-500/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
                   >
-                    <CheckCircle2 size={14} /> Formalizar
+                    <CheckCircle2 size={16} /> Formalizar
                   </button>
                 </div>
               </div>
@@ -1632,13 +1840,13 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }) {
           })}
         </div>
         
-        <div className="px-5 sm:px-6 py-4 border-t border-[#2a2d3d] flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#1a1c24]">
-          <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Total: {tasks.length} prontas</span>
+        <div className="px-6 sm:px-8 py-5 border-t border-[#27272a] flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#0f0f13]">
+          <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Ação em lote (Formaliza tudo do sistema)</span>
           <button 
             onClick={() => onFormalize(null)} 
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 sm:py-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold uppercase tracking-widest text-xs transition-all shadow-lg shadow-teal-600/20"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 sm:py-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold uppercase tracking-widest text-xs transition-all shadow-[0_0_15px_rgba(13,148,136,0.3)]"
           >
-            <Check size={16} /> Formalizar Todos
+            <Check size={18} /> Formalizar Todos
           </button>
         </div>
       </div>
@@ -1651,20 +1859,20 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
   const addChecklistRow = () => { setModal(m => ({ ...m, form: { ...m.form, checklist: [...(m.form.checklist || []), { id: nextId(), text: "", done: false }] } })); };
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[85] fade-in">
-      <div className="w-full max-w-lg rounded-3xl bg-[#161821] border border-[#2a2d3d] flex flex-col max-h-[95vh] sm:max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop">
-        <div className="px-5 sm:px-6 py-4 border-b border-[#2a2d3d] flex items-center justify-between bg-[#1a1c24]"><h3 className="font-bold text-lg text-white">{modal.mode === "add" ? "Novo Lumina" : "Editar Lumina"}</h3><button onClick={closeModal} className="p-2 sm:p-1.5 rounded-lg text-neutral-500 hover:text-white transition-colors"><X size={20} /></button></div>
-        <div className="p-5 sm:p-6 overflow-y-auto kp-scroll flex flex-col gap-4 sm:gap-5">
-          <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Título do Card *</label><input autoFocus value={modal.form.title || ''} onChange={(e) => updateForm({ title: e.target.value })} className={`w-full bg-[#0f1015] border rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500 transition-all ${validationError && String(validationError).includes("Título") ? "border-red-500" : "border-[#2a2d3d]"}`} placeholder="O que precisa ser feito?" /></div>
-          <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Contexto</label><textarea value={modal.form.description || ''} onChange={(e) => updateForm({ description: e.target.value })} rows={3} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500 resize-none transition-all" placeholder="Detalhes opcionais..." /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><CustomSelect label="Prioridade" value={modal.form.priority || ''} onChange={(e) => updateForm({ priority: e.target.value })} options={<><option value="Baixa">Baixa</option><option value="Média">Média</option><option value="Alta">Alta</option></>} /><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Est. Minutos</label><input type="number" value={modal.form.durationMin ?? ''} onChange={(e) => updateForm({ durationMin: e.target.value })} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500" /></div></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><CustomSelect label="Responsável" required hasError={validationError && String(validationError).includes("Responsável")} value={modal.form.responsibleId || ''} onChange={(e) => updateForm({ responsibleId: e.target.value })} options={<><option value="">Selecione...</option>{responsibles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</>} /><CustomSelect label="Cliente" value={modal.form.clientId || ''} onChange={(e) => updateForm({ clientId: e.target.value })} options={<><option value="">Nenhum</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1.5 block ml-1">Prazo</label><input type="date" value={modal.form.dueDate || ''} onChange={(e) => updateForm({ dueDate: e.target.value })} className="w-full bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-4 py-3 sm:py-2.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark]" /></div><CustomSelect label="Fase do Fluxo" value={modal.form.status || ''} onChange={(e) => updateForm({ status: e.target.value, waitingFor: e.target.value === 'waiting' ? modal.form.waitingFor : "" })} options={COLUMNS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)} /></div>
-          {modal.form.status === 'waiting' && <div className="animate-fade-in"><CustomSelect label="Dependência" required hasError={validationError && String(validationError).includes("Aguardando Retorno")} value={modal.form.waitingFor || ''} onChange={(e) => updateForm({ waitingFor: e.target.value })} options={<><option value="">Pendente de...</option><option value="Cliente">Cliente</option><option value="Time Interno">Time Interno</option></>} /></div>}
-          <div><div className="flex items-center justify-between mb-2"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 ml-1">Checklist de Tarefas</label><button onClick={addChecklistRow} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors p-1">+ Add Item</button></div><div className="flex flex-col gap-2">{(modal.form.checklist || []).map((c) => (<div key={c.id} className="flex items-center gap-2"><button onClick={() => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, done: !ci.done } : ci) } })); }} className={`p-2 sm:p-1.5 border rounded-xl transition-all shrink-0 ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400' : 'bg-[#0f1015] border-[#2a2d3d] text-neutral-700 hover:text-neutral-500'}`}><Check size={16}/></button><input value={c.text || ''} onChange={(e) => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, text: e.target.value } : ci) } })); }} className="flex-1 bg-[#0f1015] border border-[#2a2d3d] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 transition-all" placeholder="O que fazer?" /><button onClick={() => setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.filter(ci => ci.id !== c.id) } }))} className="p-2 text-neutral-600 hover:text-red-500 transition-colors"><X size={18} /></button></div>))}</div></div>
+      <div className="w-full max-w-xl rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[95vh] sm:max-h-[90vh] shadow-2xl overflow-hidden animate-modal-pop">
+        <div className="px-6 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]"><h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Nova Demanda" : "Editar Demanda"}</h3><button onClick={closeModal} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button></div>
+        <div className="p-6 sm:p-8 overflow-y-auto kp-scroll flex flex-col gap-6 bg-[#09090b]">
+          <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Título do Card *</label><input autoFocus value={modal.form.title || ''} onChange={(e) => updateForm({ title: e.target.value })} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all ${validationError && String(validationError).includes("Título") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Ex: Ajustar Fluxo de E-mails..." /></div>
+          <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Contexto / Descrição *</label><textarea value={modal.form.description || ''} onChange={(e) => updateForm({ description: e.target.value })} rows={4} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 resize-none transition-all ${validationError && String(validationError).includes("Descrição") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Descreva os requisitos técnicos ou regras de negócio..." /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Prioridade *" required hasError={validationError && String(validationError).includes("Prioridade")} value={modal.form.priority || ''} onChange={(e) => updateForm({ priority: e.target.value })} options={<><option value="">Selecione...</option><option value="Baixa">Baixa</option><option value="Média">Média</option><option value="Alta">Alta</option></>} /><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Est. Minutos</label><input type="number" value={modal.form.durationMin ?? ''} onChange={(e) => updateForm({ durationMin: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 shadow-sm" placeholder="Ex: 60" /></div></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Responsável *" required hasError={validationError && String(validationError).includes("Responsável")} value={modal.form.responsibleId || ''} onChange={(e) => updateForm({ responsibleId: e.target.value })} options={<><option value="">Selecione a pessoa...</option>{responsibles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</>} /><CustomSelect label="Cliente *" required hasError={validationError && String(validationError).includes("Cliente")} value={modal.form.clientId || ''} onChange={(e) => updateForm({ clientId: e.target.value })} options={<><option value="">Selecione a empresa...</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Prazo/Deadline</label><input type="date" value={modal.form.dueDate || ''} onChange={(e) => updateForm({ dueDate: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark] shadow-sm" /></div><CustomSelect label="Fase do Fluxo *" required hasError={validationError && String(validationError).includes("Fase")} value={modal.form.status || ''} onChange={(e) => updateForm({ status: e.target.value, waitingFor: e.target.value === 'waiting' ? modal.form.waitingFor : "" })} options={<><option value="">Selecionar...</option>{COLUMNS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</>} /></div>
+          {modal.form.status === 'waiting' && <div className="animate-fade-in"><CustomSelect label="Dependência *" required hasError={validationError && String(validationError).includes("Dependência")} value={modal.form.waitingFor || ''} onChange={(e) => updateForm({ waitingFor: e.target.value })} options={<><option value="">Pendente de quem?</option><option value="Cliente">Cliente</option><option value="Time Interno">Time Interno</option></>} /></div>}
+          <div className="mt-2"><div className="flex items-center justify-between mb-3"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 ml-1">Checklist de Passos</label><button onClick={addChecklistRow} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors p-1 flex items-center gap-1"><Plus size={12}/> Adicionar Passo</button></div><div className="flex flex-col gap-3">{(modal.form.checklist || []).map((c) => (<div key={c.id} className="flex items-center gap-3"><button onClick={() => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, done: !ci.done } : ci) } })); }} className={`p-2.5 border rounded-xl transition-all shrink-0 ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-[#12121a] border-[#27272a] text-neutral-700 hover:text-neutral-500 hover:bg-white/5'}`}><Check size={16}/></button><input value={c.text || ''} onChange={(e) => { setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map(ci => ci.id === c.id ? { ...ci, text: e.target.value } : ci) } })); }} className="flex-1 bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all shadow-sm" placeholder="O que precisa ser feito?" /><button onClick={() => setModal(m => ({ ...m, form: { ...m.form, checklist: m.form.checklist.filter(ci => ci.id !== c.id) } }))} className="p-2.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"><X size={18} /></button></div>))}</div></div>
         </div>
-        <div className="px-5 sm:px-6 py-5 border-t border-[#2a2d3d] flex flex-col sm:flex-row items-center justify-end gap-3 bg-[#1a1c24]"><button onClick={closeModal} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-4 py-3 rounded-xl text-neutral-500 hover:text-white transition-colors">Sair</button><button onClick={saveModal} className="w-full sm:w-auto text-xs font-black uppercase tracking-[0.15em] px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-600/20">Salvar Alterações</button></div>
+        <div className="px-6 sm:px-8 py-5 border-t border-[#27272a] flex flex-col sm:flex-row items-center justify-end gap-3 bg-[#0f0f13]"><button onClick={closeModal} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors">Cancelar</button><button onClick={saveModal} className="w-full sm:w-auto text-xs font-black uppercase tracking-[0.15em] px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)]">Salvar Demanda</button></div>
       </div>
-      {validationError && <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 fade-in z-[110] font-bold text-xs uppercase tracking-wider w-11/12 max-w-sm"><AlertTriangle size={18} className="shrink-0" /> <span className="truncate">{Array.isArray(validationError) ? validationError.join(", ") : String(validationError)}</span></div>}
+      {validationError && <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 fade-in z-[110] font-bold text-[11px] uppercase tracking-widest w-11/12 max-w-md"><AlertTriangle size={20} className="shrink-0" /> <span className="truncate">{Array.isArray(validationError) ? `Obrigatório: ${validationError.join(", ")}` : String(validationError)}</span></div>}
     </div>
   );
 }
