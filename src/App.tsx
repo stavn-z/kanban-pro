@@ -756,13 +756,12 @@ function KanbanMain({ user, setUser, onLogout }) {
   }
 
   return (
-    <div className="fixed inset-0 w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans">
+    <div className="fixed inset-0 w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans">  
       <style>{`
         .kp-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
         .kp-scroll::-webkit-scrollbar-track { background: transparent; }
-        .kp-scroll { -webkit-overflow-scrolling: touch; }
         
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -779,10 +778,14 @@ function KanbanMain({ user, setUser, onLogout }) {
         .animate-modal-out { animation: modalPopOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes modalPopOut { 0% { opacity: 1; transform: scale(1) translateY(0); } 100% { opacity: 0; transform: scale(0.97) translateY(10px); } }
         
-        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
 
         .glass-panel { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+
+        /* LINHA NOVA ADICIONADA ABAIXO */
+        .kp-scroll { -webkit-overflow-scrolling: touch; }
       `}</style>
 
       {/* LEFT SIDEBAR (Desktop) */}
@@ -904,8 +907,10 @@ function KanbanMain({ user, setUser, onLogout }) {
              </div>
           </div>
 
-          {/* Quadro Kanban (Scroll Horizontal e Vertical Nativo) */}
-          <div className="flex-1 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll min-h-0" style={{ touchAction: 'pan-x' }}>
+          {/* Quadro Kanban (Scroll Horizontal e Vertical Nativo) */}   
+          <div
+            className="flex-1 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll min-h-0"
+            style={{ touchAction: 'pan-x' }}>
             <div className="flex gap-4 sm:gap-5 h-full min-w-max">
               {COLUMNS.map((col) => {
                 const colTasks = filteredTasks.filter((t) => t.status === col.id);
@@ -928,13 +933,13 @@ function KanbanMain({ user, setUser, onLogout }) {
                       </button>
                     </div>
                     
-                    {/* Área de Cartões com scroll vertical (touch-pan-y para mobile e intercepção do touch) */}
-                    <div 
-                      className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0 overscroll-y-contain" 
-                      style={{ touchAction: 'pan-y' }} 
-                      onTouchStart={(e) => { e.stopPropagation(); }} 
-                      onTouchMove={(e) => { e.stopPropagation(); }} 
-                      onDragOver={(e) => { if (!isMobile) e.preventDefault(); }} 
+                    {/* Área de Cartões com scroll vertical (touch-pan-y para mobile e intercepção do touch) */}     
+                    <div
+                      className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0 overscroll-y-contain"
+                      style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
+                      onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
                       onDrop={(e) => { if (!isMobile) { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}}
                     >
                       {colTasks.length === 0 && (
