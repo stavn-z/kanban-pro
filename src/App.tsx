@@ -96,7 +96,7 @@ function TopWidgets() {
 
   return (
     <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 sm:gap-3">
-       <div className="flex items-center gap-2 bg-[#12121a] border border-[#27272a] px-3 sm:px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-medium text-neutral-400 shadow-sm transition-all cursor-default">
+       <div className="flex items-center gap-1.5 sm:gap-2 bg-[#12121a] border border-[#27272a] px-3 sm:px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-medium text-neutral-400 shadow-sm transition-all cursor-default">
           <weather.Icon size={14} className={weather.color} />
           <span>{weather.temp}°C <span className="hidden sm:inline">{weather.desc}</span></span>
        </div>
@@ -305,7 +305,7 @@ function KanbanMain({ user, setUser, onLogout }) {
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Monitora se está em Mobile para desativar o arrasto e permitir Scroll
+  // Monitora se está em Mobile
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -724,8 +724,8 @@ function KanbanMain({ user, setUser, onLogout }) {
     e.dataTransfer.setData("taskId", taskId);
   };
 
-  // Avatar sempre atualizado buscando do DB (Responsibles carregado) ou fallback
-  const currentUserDB = responsibles.find(r => r.id === user.id);
+  // Avatar sempre atualizado buscando do DB com fallback para o nome
+  const currentUserDB = responsibles.find(r => r.id === user.id) || responsibles.find(r => r.name.toLowerCase() === user.name.toLowerCase());
   const activeAvatar = currentUserDB?.avatar || user.avatar || '';
 
   if (isLoading) {
@@ -740,7 +740,7 @@ function KanbanMain({ user, setUser, onLogout }) {
   }
 
   return (
-    <div className="h-[100dvh] w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans relative pb-16 md:pb-0">
+    <div className="h-[100dvh] w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans">
       <style>{`
         .kp-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
@@ -888,12 +888,12 @@ function KanbanMain({ user, setUser, onLogout }) {
           </div>
 
           {/* Quadro Kanban (Scroll Horizontal e Vertical Nativo) */}
-          <div className="flex-1 overflow-x-auto px-4 md:px-8 pb-8 kp-scroll">
-            <div className="flex gap-5 items-start h-full min-w-max pb-4">
+          <div className="flex-1 overflow-x-auto px-4 md:px-8 pb-4 md:pb-8 kp-scroll">
+            <div className="flex gap-4 sm:gap-5 items-start h-full min-w-max">
               {COLUMNS.map((col) => {
                 const colTasks = filteredTasks.filter((t) => t.status === col.id);
                 return (
-                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col max-h-full shadow-sm min-h-0">
+                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col h-full shadow-sm">
                     
                     {/* Header da Coluna */}
                     <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5 shrink-0">
@@ -1025,8 +1025,8 @@ function KanbanMain({ user, setUser, onLogout }) {
         </div>
       </div>
 
-      {/* MOBILE BOTTOM NAV */}
-      <div className="md:hidden fixed bottom-0 left-0 w-full flex items-center justify-around pt-2 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] bg-[#12121a] border-t border-[#27272a] z-[100]">
+      {/* MOBILE BOTTOM NAV - Fixo na Base de Forma Responsiva */}
+      <div className="md:hidden shrink-0 flex items-center justify-around pt-2 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] bg-[#12121a] border-t border-[#27272a] z-[100] w-full">
          <MobileNavBtn icon={<LayoutDashboard size={20} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
          <MobileNavBtn icon={<Clock size={20} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
          <MobileNavBtn icon={<Building2 size={20} />} label="Clientes" active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} alert={clientsNearLimit.length > 0} />
@@ -1151,7 +1151,7 @@ function KanbanMain({ user, setUser, onLogout }) {
 // --- Sub-Componentes UI Reutilizáveis (Lumina 2.0 Estilo) ---
 
 function ProfileModal({ user, responsibles, onClose, onUpdate }) {
-  const currentUserDB = responsibles.find(r => r.id === user.id);
+  const currentUserDB = responsibles.find(r => r.id === user.id) || responsibles.find(r => r.name.toLowerCase() === user.name.toLowerCase());
   const activeAvatar = currentUserDB?.avatar || user.avatar || '';
 
   const [password, setPassword] = useState('');
@@ -1179,7 +1179,7 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }) {
     
     if (Object.keys(updates).length > 0) {
        try {
-         await window.supabaseClient.from('responsibles').update(updates).eq('id', user.id);
+         await window.supabaseClient.from('responsibles').update(updates).eq('id', currentUserDB?.id || user.id);
        } catch (e) {
          console.error("Erro ao alterar dados", e);
        }
