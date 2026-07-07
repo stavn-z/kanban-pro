@@ -50,7 +50,7 @@ function downloadCSV(dataArray, filename) {
 function TopWidgets() {
   const [dateStr, setDateStr] = useState('');
   const [timeStr, setTimeStr] = useState('');
-  const [weather, setWeather] = useState({ temp: '--', desc: 'Carregando...', Icon: Cloud, color: 'text-neutral-500' });
+  const [weather, setWeather] = useState({ temp: '--', desc: 'A carregar...', Icon: Cloud, color: 'text-neutral-500' });
 
   useEffect(() => {
     const updateTime = () => {
@@ -158,7 +158,7 @@ function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-[#09090b] flex items-center justify-center p-4">
       <div className="bg-[#12121a] p-8 rounded-[32px] border border-[#27272a] w-full max-w-sm shadow-[0_0_50px_rgba(79,70,229,0.05)] animate-modal-pop">
         <div className="flex flex-col items-center justify-center gap-4 mb-8">
           <div className="w-24 h-24 rounded-[22px] bg-black flex items-center justify-center border border-white/5 overflow-hidden shadow-2xl">
@@ -262,7 +262,7 @@ export default function App() {
 
   if (!supabaseReady) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4 text-center">
+      <div className="min-h-[100dvh] bg-[#09090b] flex flex-col items-center justify-center p-4 text-center">
         <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 animate-pulse shadow-[0_0_30px_rgba(79,70,229,0.1)]">
           <img src="/apple-icon.png" alt="Lumina" className="w-full h-full object-cover" />
         </div>
@@ -724,9 +724,13 @@ function KanbanMain({ user, setUser, onLogout }) {
     e.dataTransfer.setData("taskId", taskId);
   };
 
+  // Avatar sempre atualizado buscando do DB (Responsibles carregado) ou fallback
+  const currentUserDB = responsibles.find(r => r.id === user.id);
+  const activeAvatar = currentUserDB?.avatar || user.avatar || '';
+
   if (isLoading) {
     return (
-      <div className="h-screen w-full bg-[#09090b] flex flex-col items-center justify-center p-4 text-center">
+      <div className="h-[100dvh] w-full bg-[#09090b] flex flex-col items-center justify-center p-4 text-center">
         <div className="w-20 h-20 rounded-[18px] bg-black border border-white/5 flex items-center justify-center overflow-hidden mb-6 shadow-[0_0_30px_rgba(79,70,229,0.1)] animate-modal-pop">
           <img src="/apple-icon.png" alt="Lumina" className="w-full h-full object-cover" />
         </div>
@@ -736,7 +740,7 @@ function KanbanMain({ user, setUser, onLogout }) {
   }
 
   return (
-    <div className="h-screen w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans">
+    <div className="h-[100dvh] w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans relative pb-16 md:pb-0">
       <style>{`
         .kp-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
@@ -782,7 +786,7 @@ function KanbanMain({ user, setUser, onLogout }) {
         
         <div className="flex flex-col items-center gap-4 relative">
            <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors" title="Meu Perfil">
-             {user.avatar ? <img src={user.avatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+             {activeAvatar ? <img src={activeAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
            </button>
            
            {showProfileMenu && (
@@ -805,7 +809,7 @@ function KanbanMain({ user, setUser, onLogout }) {
           <div className="md:hidden flex items-center justify-between w-full">
              <div className="flex items-center gap-3 relative">
                 <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-[#181a24] border border-[#2d3142] flex items-center justify-center text-indigo-400 font-bold uppercase shadow-sm overflow-hidden hover:border-indigo-500 transition-colors">
-                  {user.avatar ? <img src={user.avatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
+                  {activeAvatar ? <img src={activeAvatar} alt="User" className="w-full h-full object-cover" /> : user.name.charAt(0)}
                 </button>
                 <h1 className="font-bold text-xl text-white tracking-tight">Lumina</h1>
                 
@@ -883,16 +887,16 @@ function KanbanMain({ user, setUser, onLogout }) {
              </div>
           </div>
 
-          {/* Quadro Kanban (Scroll Horizontal nativo) */}
+          {/* Quadro Kanban (Scroll Horizontal e Vertical Nativo) */}
           <div className="flex-1 overflow-x-auto px-4 md:px-8 pb-8 kp-scroll">
             <div className="flex gap-5 items-start h-full min-w-max pb-4">
               {COLUMNS.map((col) => {
                 const colTasks = filteredTasks.filter((t) => t.status === col.id);
                 return (
-                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col max-h-full shadow-sm">
+                  <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col max-h-full shadow-sm min-h-0">
                     
                     {/* Header da Coluna */}
-                    <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5">
+                    <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5 shrink-0">
                       <div className="flex items-center gap-2.5">
                         <span className={`w-2.5 h-2.5 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} />
                         <h2 className="text-xs font-bold uppercase tracking-widest text-white">{col.name}</h2>
@@ -901,14 +905,14 @@ function KanbanMain({ user, setUser, onLogout }) {
                     </div>
                     
                     {/* Botão de Adicionar */}
-                    <div className="px-3 pt-3">
+                    <div className="px-3 pt-3 shrink-0">
                       <button onClick={() => openAddModal(col.id)} className={`w-full flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-widest rounded-xl py-3 transition-all border border-dashed ${col.btn}`}>
                         <Plus size={14} /> Nova Demanda
                       </button>
                     </div>
                     
-                    {/* Área de Cartões */}
-                    <div className="px-3 pb-3 flex-1 overflow-y-auto kp-scroll flex flex-col gap-3 mt-3" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}>
+                    {/* Área de Cartões com scroll vertical (touch-pan-y para mobile) */}
+                    <div className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3" style={{ touchAction: 'pan-y' }} onDragOver={(e) => { if (!isMobile) e.preventDefault(); }} onDrop={(e) => { if (!isMobile) { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}}>
                       {colTasks.length === 0 && (
                         <div className="text-center text-[10px] font-medium uppercase tracking-widest text-neutral-600 py-10 border border-dashed border-white/5 rounded-xl mx-2">
                           Solte itens aqui
@@ -926,7 +930,7 @@ function KanbanMain({ user, setUser, onLogout }) {
                         const isEditable = canEditTask(t.responsibleId);
 
                         return (
-                          <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={isEditable && !isMobile} onDragStart={(e) => { if(isEditable && !isMobile) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
+                          <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={!isMobile && isEditable} onDragStart={(e) => { if(!isMobile && isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(!isMobile && isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(!isMobile && isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
                             
                             {/* Badges do Cartão */}
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -936,8 +940,8 @@ function KanbanMain({ user, setUser, onLogout }) {
                                   <span className={`w-1 h-1 rounded-full ${prStyle.dot}`} /> {t.priority}
                                 </span>
                               </div>
-                              {isEditable && <GripVertical size={14} className="text-neutral-600 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" />}
-                              {!isEditable && <Lock size={12} className="text-neutral-600 shrink-0 hidden md:block" />}
+                              {isEditable && !isMobile && <GripVertical size={14} className="text-neutral-600 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" />}
+                              {!isEditable && !isMobile && <Lock size={12} className="text-neutral-600 shrink-0 hidden md:block" />}
                             </div>
 
                             <div className="mb-3">
@@ -1022,7 +1026,7 @@ function KanbanMain({ user, setUser, onLogout }) {
       </div>
 
       {/* MOBILE BOTTOM NAV */}
-      <div className="md:hidden shrink-0 flex items-center justify-around pt-2 px-2 pb-[max(env(safe-area-inset-bottom),1rem)] bg-[#12121a] border-t border-[#27272a] z-30 relative">
+      <div className="md:hidden fixed bottom-0 left-0 w-full flex items-center justify-around pt-2 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] bg-[#12121a] border-t border-[#27272a] z-[100]">
          <MobileNavBtn icon={<LayoutDashboard size={20} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
          <MobileNavBtn icon={<Clock size={20} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
          <MobileNavBtn icon={<Building2 size={20} />} label="Clientes" active={activeTab === 'clients' && !isClosingModal} onClick={() => setActiveTab('clients')} alert={clientsNearLimit.length > 0} />
@@ -1030,7 +1034,7 @@ function KanbanMain({ user, setUser, onLogout }) {
       </div>
 
       {/* Pop-up: Perfil do Utilizador */}
-      {profileModal && <ProfileModal user={user} onClose={() => setProfileModal(false)} onUpdate={(u) => { setUser(u); localStorage.setItem("kanban_user_obj", JSON.stringify(u)); }} />}
+      {profileModal && <ProfileModal user={user} responsibles={responsibles} onClose={() => setProfileModal(false)} onUpdate={(u) => { setUser(u); localStorage.setItem("kanban_user_obj", JSON.stringify(u)); }} />}
 
       {/* Pop-up: Aguardando Retorno */}
       {waitingPrompt && (
@@ -1146,9 +1150,12 @@ function KanbanMain({ user, setUser, onLogout }) {
 
 // --- Sub-Componentes UI Reutilizáveis (Lumina 2.0 Estilo) ---
 
-function ProfileModal({ user, onClose, onUpdate }) {
+function ProfileModal({ user, responsibles, onClose, onUpdate }) {
+  const currentUserDB = responsibles.find(r => r.id === user.id);
+  const activeAvatar = currentUserDB?.avatar || user.avatar || '';
+
   const [password, setPassword] = useState('');
-  const [avatarInput, setAvatarInput] = useState(user.avatar || '');
+  const [avatarInput, setAvatarInput] = useState(activeAvatar);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSave = async () => {
@@ -1156,7 +1163,7 @@ function ProfileModal({ user, onClose, onUpdate }) {
     let updatedUser = { ...user };
     let updates = {};
     
-    if (avatarInput.trim() !== user.avatar) {
+    if (avatarInput.trim() !== activeAvatar) {
       updates.avatar = avatarInput.trim();
       updatedUser.avatar = avatarInput.trim();
     }
