@@ -320,6 +320,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const [isCloudSynced, setIsCloudSynced] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
   // Monitora se está em Mobile
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   useEffect(() => {
@@ -872,35 +874,44 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         {/* BOARD VIEW */}
         <div className={`flex-1 flex flex-col min-h-0 ${activeTab !== 'board' ? 'hidden md:flex opacity-30 pointer-events-none transition-opacity duration-300' : 'fade-in'}`}>
           
-          <div className="shrink-0 px-4 md:px-8 pb-5 flex flex-col gap-4">
-             {/* Filtros e Fechamento Semanal */}
-             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
+          <div className="shrink-0 px-4 md:px-8 pb-3 flex flex-col gap-3">
+             <div className="flex flex-col lg:flex-row gap-3 w-full">
                 
-                <div className="glass-panel p-3 sm:px-4 sm:py-2.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full lg:w-auto shadow-sm">
-                   <div className="flex items-center gap-2 w-full sm:w-auto">
-                       <Filter size={16} className="text-neutral-500 shrink-0 hidden sm:block" />
-                       <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                {/* Barra de Progresso */}
+                <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0">
+                   <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Progresso</span>
+                   <div className="flex-1 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
+                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
                    </div>
-                   <div className="hidden sm:block w-px h-4 bg-white/10"></div>
-                   <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
-                   <div className="hidden sm:block w-px h-4 bg-white/10"></div>
-                   <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
+                   <span className="text-xs font-bold text-white shrink-0">{overallProgress}%</span>
                 </div>
 
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto mt-1 lg:mt-0">
-                   <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0">
-                     <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 hidden sm:block">Progresso</span>
-                     <div className="flex-1 sm:w-32 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
-                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
-                     </div>
-                     <span className="text-xs font-bold text-white shrink-0">{overallProgress}%</span>
-                   </div>
+                {/* Botões Mobile (Filtros e Fechamento) */}
+                <div className="flex items-center gap-3 w-full lg:w-auto">
+                   <button 
+                     onClick={() => setShowMobileFilters(!showMobileFilters)} 
+                     className={`lg:hidden flex-1 h-11 px-4 flex items-center justify-center gap-2 font-bold uppercase tracking-widest text-[10px] transition-all rounded-xl shadow-sm border ${showMobileFilters ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'glass-panel text-neutral-400 border-white/5 hover:text-white'}`}
+                   >
+                     <Filter size={16} /> Filtros
+                   </button>
 
                    {tasksForClosure.length > 0 && (
-                      <button onClick={() => setClosureModal(true)} className="h-11 w-full sm:w-auto px-4 sm:px-5 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
-                        <Mail size={16}/> Fechar Semana
+                      <button onClick={() => setClosureModal(true)} className="flex-1 lg:flex-none h-11 px-4 sm:px-6 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
+                        <Mail size={16}/> <span className="whitespace-nowrap">Fechar Semana</span>
                       </button>
                     )}
+                </div>
+             </div>
+
+             {/* Filtros Dropdown */}
+             <div className={`flex items-center gap-3 overflow-x-auto hide-scrollbar w-full transition-all duration-300 ${showMobileFilters ? 'flex' : 'hidden lg:flex'}`}>
+                <div className="glass-panel w-full lg:w-auto px-4 py-2.5 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3 shadow-sm mb-1">
+                  <Filter size={16} className="text-neutral-500 shrink-0 hidden lg:block" />
+                  <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                  <div className="w-full sm:w-px h-px sm:h-4 bg-white/10"></div>
+                  <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
+                  <div className="w-full sm:w-px h-px sm:h-4 bg-white/10"></div>
+                  <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
                 </div>
              </div>
           </div>
@@ -912,14 +923,14 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                 {COLUMNS.map((col) => {
                   const colTasks = filteredTasks.filter((t) => t.status === col.id);
                   return (
-                    <div key={col.id} className="w-[85vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col h-full max-h-full shadow-sm">
+                    <div key={col.id} className="w-[88vw] max-w-[340px] sm:w-[340px] shrink-0 glass-panel rounded-2xl flex flex-col h-full shadow-sm">
                       
                       {/* Header da Coluna */}
                       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/5 shrink-0">
-                        <div className="flex items-center gap-2 relative group cursor-default">
+                        <div className="flex items-center gap-2 relative group cursor-pointer">
                           <span className={`w-2.5 h-2.5 shrink-0 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} />
                           <h2 className="text-xs font-bold uppercase tracking-widest text-white">{col.name}</h2>
-                          <HelpCircle size={14} className="text-neutral-500 hover:text-neutral-300 transition-colors cursor-help ml-0.5" />
+                          <HelpCircle size={14} className="text-neutral-500 hover:text-neutral-300 transition-colors ml-0.5" />
                           
                           <div className="absolute left-0 top-full mt-2 w-56 sm:w-64 p-3 bg-[#1c1d26] border border-[#27272a] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] pointer-events-none normal-case tracking-normal">
                             <div className="text-[11px] text-neutral-300 leading-relaxed font-normal">{col.help}</div>
@@ -954,7 +965,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                         {colTasks.map((t) => {
                           const tChecklist = Array.isArray(t.checklist) ? t.checklist : [];
                           const total = tChecklist.length;
-                          const done = tChecklist.filter((c) => c.done).length;
+                          const done = tChecklist.filter((c: any) => c.done).length;
                           const pct = total ? Math.round((done / total) * 100) : 0;
                           const client = clients.find(c => c.id === t.clientId);
                           const resp = responsibles.find(r => r.id === t.responsibleId);
@@ -1069,7 +1080,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       </div>
 
       {/* Pop-up: Perfil do Utilizador */}
-      {profileModal && <ProfileModal user={user} responsibles={responsibles} onClose={() => setProfileModal(false)} onUpdate={(u) => { setUser(u); localStorage.setItem("kanban_user_obj", JSON.stringify(u)); }} />}
+      {profileModal && <ProfileModal user={user} responsibles={responsibles} onClose={() => setProfileModal(false)} onUpdate={(u: any) => { setUser(u); localStorage.setItem("kanban_user_obj", JSON.stringify(u)); }} />}
 
       {/* Pop-up: Aguardando Retorno */}
       {waitingPrompt && (
@@ -1082,8 +1093,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             </div>
             <p className="text-sm text-neutral-400 mb-8 leading-relaxed">O card foi movido para Aguardando. Selecione o bloqueador da tarefa:</p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => { setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Cliente' } : t)); setWaitingPrompt(null); }} className="w-full py-4 rounded-2xl border border-[#2a2d3d] hover:border-[#3f4359] hover:bg-white/5 text-white font-bold transition-all text-sm">Responsabilidade do Cliente</button>
-              <button onClick={() => { setTasks(prev => prev.map(t => t.id === waitingPrompt ? { ...t, waitingFor: 'Time Interno' } : t)); setWaitingPrompt(null); }} className="w-full py-4 rounded-2xl bg-pink-600 hover:bg-pink-500 text-white font-bold transition-all text-sm shadow-lg shadow-pink-600/10">Nossa Responsabilidade</button>
+              <button onClick={() => { setTasks((prev: any) => prev.map((t: any) => t.id === waitingPrompt ? { ...t, waitingFor: 'Cliente' } : t)); setWaitingPrompt(null); }} className="w-full py-4 rounded-2xl border border-[#2a2d3d] hover:border-[#3f4359] hover:bg-white/5 text-white font-bold transition-all text-sm">Responsabilidade do Cliente</button>
+              <button onClick={() => { setTasks((prev: any) => prev.map((t: any) => t.id === waitingPrompt ? { ...t, waitingFor: 'Time Interno' } : t)); setWaitingPrompt(null); }} className="w-full py-4 rounded-2xl bg-pink-600 hover:bg-pink-500 text-white font-bold transition-all text-sm shadow-lg shadow-pink-600/10">Nossa Responsabilidade</button>
             </div>
           </div>
         </div>
@@ -1118,8 +1129,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
 
       {/* Alerta de Banco de Horas */}
       {pendingLimitAlerts.length > 0 && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] fade-in">
-          <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden animate-modal-pop">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] fade-in" onClick={() => setDismissedLimits(new Set([...dismissedLimits, ...pendingLimitAlerts.map(c => c.id)]))}>
+          <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center gap-3">
               <div className="p-3 bg-red-500/10 rounded-2xl shadow-inner text-red-500"><AlertTriangle size={24} /></div>
               <h3 className="font-bold text-xl text-white tracking-tight">Alerta de Limite</h3>
@@ -1128,8 +1139,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
               <p className="text-sm text-neutral-400">Os seguintes clientes esgotaram as horas mensais ou estão próximos do fim:</p>
               <div className="flex flex-col gap-3 max-h-40 overflow-y-auto kp-scroll pr-2">
                 {pendingLimitAlerts.map(c => {
-                  const cTasks = tasks.filter(t => t.clientId === c.id);
-                  const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
+                  const cTasks = tasks.filter((t: any) => t.clientId === c.id);
+                  const hours = cTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0);
                   const remaining = (c.contractedHours || 0) - hours;
                   return (
                     <div key={c.id} className="flex justify-between items-center bg-[#09090b] border border-[#27272a] p-4 rounded-xl">
@@ -1142,7 +1153,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
               <p className="text-[11px] text-neutral-500 italic">Formalize o aviso na aba Clientes para continuar.</p>
             </div>
             <div className="px-5 sm:px-8 py-5 border-t border-[#27272a] bg-black/20 flex justify-end">
-              <button onClick={() => setDismissedLimits(prev => new Set([...prev, ...pendingLimitAlerts.map(c => c.id)]))} className="w-full sm:w-auto text-sm px-8 py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all shadow-lg shadow-red-600/20">Ciente do Aviso</button>
+              <button onClick={() => setDismissedLimits((prev: any) => new Set([...prev, ...pendingLimitAlerts.map(c => c.id)]))} className="w-full sm:w-auto text-sm px-8 py-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all shadow-lg shadow-red-600/20">Ciente do Aviso</button>
             </div>
           </div>
         </div>
@@ -1163,7 +1174,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
               <button onClick={() => setConfirmDelete(null)} className="w-full sm:flex-1 py-3.5 sm:py-3 rounded-2xl border border-[#27272a] hover:bg-white/5 text-white font-bold transition-all text-sm">Cancelar</button>
               <button onClick={async () => {
                   const idToDelete = confirmDelete;
-                  setTasks(prev => prev.filter((t) => t.id !== idToDelete));
+                  setTasks((prev: any) => prev.filter((t: any) => t.id !== idToDelete));
                   setConfirmDelete(null);
                   if (window.supabaseClient) await window.supabaseClient.from('tasks').delete().eq('id', idToDelete.toString());
                 }} 
@@ -1177,7 +1188,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       )}
 
       {/* Modais de Popups Principais */}
-      {closureModal && <ClosureModal tasks={tasksForClosure} clients={clients} responsibles={responsibles} onClose={() => setClosureModal(false)} onFormalize={(clientId) => { if (clientId) { setTasks(prev => prev.map(t => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t)); } else { setTasks(prev => prev.map(t => t.status === 'done' ? { ...t, status: 'formalize' } : t)); setClosureModal(false); } }} />}
+      {closureModal && <ClosureModal tasks={tasksForClosure} clients={clients} responsibles={responsibles} onClose={() => setClosureModal(false)} onFormalize={(clientId: string | null) => { if (clientId) { setTasks((prev: any) => prev.map((t: any) => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t)); } else { setTasks((prev: any) => prev.map((t: any) => t.status === 'done' ? { ...t, status: 'formalize' } : t)); setClosureModal(false); } }} />}
       {modal && <TaskModal modal={modal} setModal={setModal} clients={clients} responsibles={responsibles} closeModal={closeModal} saveModal={saveModal} validationError={validationError} setValidationError={setValidationError} />}
     </div>
   );
