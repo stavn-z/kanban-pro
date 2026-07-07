@@ -908,10 +908,8 @@ function KanbanMain({ user, setUser, onLogout }) {
           </div>
 
           {/* Quadro Kanban (Scroll Horizontal e Vertical Nativo) */}   
-          <div
-            className="flex-1 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll min-h-0"
-            style={{ touchAction: 'pan-x' }}>
-            <div className="flex gap-4 sm:gap-5 h-full min-w-max">
+          <div className="flex-1 overflow-x-auto px-4 md:px-8 pb-4 md:pb-8 kp-scroll min-h-0">
+            <div className="flex gap-4 sm:gap-5 h-full min-w-max items-start">
               {COLUMNS.map((col) => {
                 const colTasks = filteredTasks.filter((t) => t.status === col.id);
                 return (
