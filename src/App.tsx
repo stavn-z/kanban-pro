@@ -262,6 +262,26 @@ function LoginScreen({ onLogin }: { onLogin: any }) {
 export default function App() {
   const [supabaseReady, setSupabaseReady] = useState(!!(window as any).supabaseClient);
 
+  // Injetar Polyfill de Drag & Drop para Mobile no carregamento da App
+  useEffect(() => {
+    const loadMobileDragDrop = async () => {
+       const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+       if (!isTouchDevice) return;
+       if ((window as any).MobileDragDrop) return;
+       
+       const script1 = document.createElement('script');
+       script1.src = 'https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js';
+       script1.onload = () => {
+          (window as any).MobileDragDrop.polyfill({
+             holdToDrag: 350 // Tempo de clique segurado (0.35s) para iniciar o arraste no mobile
+          });
+          window.addEventListener('touchmove', function() {}, {passive: false});
+       };
+       document.head.appendChild(script1);
+    };
+    loadMobileDragDrop();
+  }, []);
+
   useEffect(() => {
     if ((window as any).supabase) {
       if (!(window as any).supabaseClient) {
@@ -707,7 +727,6 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
 
       if (donePrompt.targetId) {
         let toIndex = newTasks.findIndex(t => t.id.toString() === donePrompt.targetId.toString());
-        // Ajuste de Reordenamento na mesma coluna para baixo
         if (prev[fromIndex].status === 'done' && fromIndex < originalToIndex) {
            toIndex += 1;
         }
@@ -765,7 +784,6 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       if (targetId) {
         let toIndex = newTasks.findIndex(t => t.id.toString() === targetId.toString());
         
-        // Ajuste fundamental de reordenamento: se foi puxado de cima para baixo na mesma coluna, encaixa abaixo do alvo.
         if (originalStatus === newStatus && fromIndex < originalToIndex) {
             toIndex += 1;
         }
@@ -782,7 +800,6 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     });
   };
 
-  // Funções extra para mover cartões manualmente no Mobile (Cima/Baixo) sem arrastar
   const moveTaskVertical = (taskId: string, direction: 'up' | 'down') => {
     setTasks(prev => {
       const idx = prev.findIndex(t => t.id.toString() === taskId.toString());
@@ -799,7 +816,6 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       const targetGlobalIdx = prev.findIndex(t => t.id === targetColTask.id);
       
       const newTasks = [...prev];
-      // Trocar posições
       newTasks[idx] = newTasks[targetGlobalIdx];
       newTasks[targetGlobalIdx] = task;
       
@@ -830,7 +846,6 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     e.dataTransfer.setData("taskId", taskId);
   };
 
-  // Avatar sempre atualizado buscando do DB com fallback para o nome
   const currentUserDB = responsibles.find(r => r.id === user.id) || responsibles.find(r => r.name.toLowerCase() === user.name.toLowerCase());
   const activeAvatar = currentUserDB?.avatar || user.avatar || '';
 
@@ -853,6 +868,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         .kp-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
         .kp-scroll::-webkit-scrollbar-track { background: transparent; }
         
+        .kp-scroll { -webkit-overflow-scrolling: touch; }
+        
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
@@ -862,7 +879,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         .fade-out { animation: fadeOut 0.2s ease-out forwards; }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-        .animate-modal-pop { animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-modal-pop { animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         
         .animate-modal-out { animation: modalPopOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -965,10 +982,10 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         <div className={`flex-1 flex flex-col min-h-0 ${activeTab !== 'board' ? 'hidden md:flex opacity-30 pointer-events-none transition-opacity duration-300' : 'fade-in'}`}>
           
           <div className="shrink-0 px-4 md:px-8 pb-3 flex flex-col gap-3">
-             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                 
                 {/* Linha Principal (Filtro Button, Progresso e Fechar Semana) */}
-                <div className="flex items-center gap-3 w-full lg:w-auto">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full">
                    <button 
                      onClick={(e) => { e.stopPropagation(); setShowFilters(!showFilters); }} 
                      className={`h-11 w-11 lg:w-auto px-0 lg:px-4 flex items-center justify-center gap-2 rounded-xl transition-all shadow-sm shrink-0 border font-bold uppercase tracking-widest text-[10px] ${showFilters ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'glass-panel text-neutral-400 border-white/5 hover:text-white'}`}
@@ -976,7 +993,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                      <Filter size={16} /> <span className="hidden lg:inline">Filtros</span>
                    </button>
 
-                   <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0">
+                   <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0 lg:flex">
                      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Progresso</span>
                      <div className="flex-1 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
@@ -1010,11 +1027,11 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-black/20 p-3 lg:p-0 lg:bg-transparent rounded-lg border border-white/5 lg:border-none">
                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                           <label className="text-[10px] uppercase font-bold text-indigo-300 whitespace-nowrap">Criado de:</label>
-                          <input type="date" value={filterCreatedStart} onChange={e => setFilterCreatedStart(e.target.value)} className="bg-[#12121a] border border-[#27272a] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                          <input type="date" value={filterCreatedStart} onChange={e => setFilterCreatedStart(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
                        </div>
                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                           <label className="text-[10px] uppercase font-bold text-neutral-500 whitespace-nowrap text-right">Até:</label>
-                          <input type="date" value={filterCreatedEnd} onChange={e => setFilterCreatedEnd(e.target.value)} className="bg-[#12121a] border border-[#27272a] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                          <input type="date" value={filterCreatedEnd} onChange={e => setFilterCreatedEnd(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
                        </div>
                     </div>
                     
@@ -1023,11 +1040,11 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-black/20 p-3 lg:p-0 lg:bg-transparent rounded-lg border border-white/5 lg:border-none">
                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                           <label className="text-[10px] uppercase font-bold text-emerald-300 whitespace-nowrap">Concluído de:</label>
-                          <input type="date" value={filterCompletedStart} onChange={e => setFilterCompletedStart(e.target.value)} className="bg-[#12121a] border border-[#27272a] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                          <input type="date" value={filterCompletedStart} onChange={e => setFilterCompletedStart(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
                        </div>
                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                           <label className="text-[10px] uppercase font-bold text-neutral-500 whitespace-nowrap text-right">Até:</label>
-                          <input type="date" value={filterCompletedEnd} onChange={e => setFilterCompletedEnd(e.target.value)} className="bg-[#12121a] border border-[#27272a] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                          <input type="date" value={filterCompletedEnd} onChange={e => setFilterCompletedEnd(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
                        </div>
                     </div>
 
@@ -1060,8 +1077,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                           <h2 className="text-xs font-bold uppercase tracking-widest text-white">{col.name}</h2>
                           <HelpCircle size={14} className="text-neutral-500 hover:text-neutral-300 transition-colors ml-0.5" />
                           
-                          <div className={`absolute left-0 top-full mt-2 w-64 sm:w-72 p-4 bg-[#1c1d26] border border-[#27272a] rounded-xl shadow-2xl transition-all z-[60] normal-case tracking-normal cursor-default ${activeTooltipCol === col.id ? 'opacity-100 visible' : 'opacity-0 invisible lg:group-hover:opacity-100 lg:group-hover:visible'}`} onClick={e => e.stopPropagation()}>
-                            <div className="text-[12px] text-neutral-300 leading-relaxed font-normal">{col.help}</div>
+                          <div className={`absolute left-0 top-full mt-2 w-56 sm:w-64 p-4 bg-[#1c1d26] border border-[#27272a] rounded-xl shadow-2xl transition-all z-[60] normal-case tracking-normal cursor-default ${activeTooltipCol === col.id ? 'opacity-100 visible' : 'opacity-0 invisible lg:group-hover:opacity-100 lg:group-hover:visible'}`} onClick={e => e.stopPropagation()}>
+                            <div className="text-[11px] text-neutral-300 leading-relaxed font-normal">{col.help}</div>
                           </div>
                         </div>
                         <span className="text-[10px] px-2.5 py-1 rounded-lg bg-black/40 text-neutral-400 font-bold border border-white/5">{colTasks.length}</span>
@@ -1074,10 +1091,17 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                         </button>
                       </div>
                       
-                      {/* Área de Cartões - Removido bloqueio do touch e adicionado suporte a drag mobile nativo */}     
-                      <div className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0"
-                           onDragOver={(e) => { e.preventDefault(); }}
-                           onDrop={(e) => { e.preventDefault(); handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id); }}>
+                      {/* Área de Cartões - min-h-0 garante que o scroll interno funcione na perfeição no mobile */}     
+                      <div 
+                        className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0"
+                        onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
+                        onDrop={(e) => {
+                          if (!isMobile) {
+                            e.preventDefault();
+                            handleRequestMove(e.dataTransfer.getData("taskId"), null, col.id);
+                          }
+                        }}
+                      >
                         {colTasks.length === 0 && (
                           <div className="text-center text-[10px] font-medium uppercase tracking-widest text-neutral-600 py-10 border border-dashed border-white/5 rounded-xl mx-2">
                             Solte itens aqui
@@ -1095,7 +1119,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                           const isEditable = canEditTask(t.responsibleId);
 
                           return (
-                            <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group relative ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={isEditable} onDragStart={(e) => { if(isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
+                            <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group relative ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={!isMobile && isEditable} onDragStart={(e) => { if(!isMobile && isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(!isMobile && isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(!isMobile && isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
                               
                               {/* Badges do Cartão */}
                               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -1612,13 +1636,13 @@ function ClientModal({ modal, setModal, setClients }: any) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[70] fade-in" onClick={() => setModal(null)}>
-      <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col shadow-2xl overflow-hidden animate-modal-pop" onClick={(e) => e.stopPropagation()}>
-        <div className="px-8 py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
+      <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[85vh] shadow-2xl overflow-hidden animate-modal-pop" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13] shrink-0">
           <h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
           <button onClick={() => setModal(null)} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button>
         </div>
         
-        <div className="p-8 flex flex-col gap-6 bg-[#09090b]">
+        <div className="p-5 sm:p-8 flex flex-col gap-6 bg-[#09090b] flex-1 overflow-y-auto">
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Nome da Empresa *</label>
             <input autoFocus value={form.name || ''} onChange={(e) => { setForm({ ...form, name: e.target.value }); setValidationError(null); }} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-purple-500 transition-colors ${validationError && String(validationError).includes("nome") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Ex: Acme Corp" />
@@ -1653,7 +1677,7 @@ function ClientModal({ modal, setModal, setClients }: any) {
           </div>
         </div>
         
-        <div className="px-8 py-6 border-t border-[#27272a] flex items-center justify-end gap-3 bg-[#0f0f13]">
+        <div className="px-5 sm:px-8 py-5 border-t border-[#27272a] flex items-center justify-end gap-3 bg-[#0f0f13] shrink-0">
           <button onClick={() => setModal(null)} className="flex-1 sm:flex-none text-xs font-bold uppercase tracking-widest px-5 py-4 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
           <button onClick={saveClient} className="flex-1 sm:flex-none text-xs font-black uppercase tracking-[0.15em] px-8 py-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-[0_0_15px_rgba(147,51,234,0.3)]">Salvar Cliente</button>
         </div>
@@ -1770,9 +1794,10 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
     // Salvar no Supabase
     if (window.supabaseClient) {
        try {
-         await (window as any).supabaseClient.from('settings').upsert({ id: 'global', looker_global_url: finalUrl });
+         const { error } = await (window as any).supabaseClient.from('settings').upsert({ id: 'global', looker_global_url: finalUrl });
+         if(error) console.error("Erro ao salvar Looker URL global", error);
        } catch (e) {
-         console.error("Erro ao salvar Looker URL global", e);
+         console.error("Erro crítico ao salvar Looker URL global", e);
        }
     }
   };
