@@ -1780,6 +1780,17 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
   const [isEditing, setIsEditing] = useState(false);
   const [inputUrl, setInputUrl] = useState(globalLookerUrl);
 
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterClient, setFilterClient] = useState("all");
+  const [filterResp, setFilterResp] = useState("all");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterCreatedStart, setFilterCreatedStart] = useState("");
+  const [filterCreatedEnd, setFilterCreatedEnd] = useState("");
+  const [filterCompletedStart, setFilterCompletedStart] = useState("");
+  const [filterCompletedEnd, setFilterCompletedEnd] = useState("");
+  
+  const hasDateFilters = filterCreatedStart || filterCreatedEnd || filterCompletedStart || filterCompletedEnd;
+
   const saveUrl = async () => {
     let finalUrl = inputUrl.trim();
     if (finalUrl && finalUrl.includes('/reporting/') && !finalUrl.includes('/embed/')) {
@@ -1799,9 +1810,17 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
     }
   };
 
+  const filteredTasks = tasks.filter((t: any) =>
+      (filterClient === "all" || t.clientId === filterClient) &&
+      (filterResp === "all" || t.responsibleId === filterResp) &&
+      (filterPriority === "all" || t.priority === filterPriority) &&
+      filterByPeriod(t.createdAt, filterCreatedStart, filterCreatedEnd) &&
+      filterByPeriod(t.completedAt, filterCompletedStart, filterCompletedEnd)
+  );
+
   const exportTasksCSV = () => {
     const headers = ["ID", "Título", "Status", "Prioridade", "Cliente", "Responsável", "Estimado (min)", "Gasto (h)"];
-    const rows = tasks.map((t: any) => {
+    const rows = filteredTasks.map((t: any) => {
       const clientName = clients.find((c: any) => c.id === t.clientId)?.name || '-';
       const respName = responsibles.find((r: any) => r.id === t.responsibleId)?.name || '-';
       const statusName = COLUMNS.find(c => c.id === t.status)?.name || t.status;
@@ -1813,7 +1832,7 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
 
   return (
     <OverlayModal title="Lumina Analytics" icon={<BarChart3 className="text-blue-500" size={24}/>} onClose={onClose} fullWidth isClosing={isClosing}>
-      <div className="flex flex-col h-full fade-in">
+      <div className="flex flex-col h-full fade-in pb-8">
         
         {/* Toggle View */}
         <div className="flex justify-center mb-8 shrink-0">
@@ -1825,14 +1844,129 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
 
         {/* View 1: Relatórios Internos */}
         {activeView === 'internal' && (
-           <div className="flex flex-col gap-8 fade-in h-full">
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Fase do Fluxo</h3><div className="flex flex-col gap-3">{COLUMNS.map(col => { const count = tasks.filter((t: any) => t.status === col.id).length; return (<div key={col.id} className="flex justify-between items-center bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="flex items-center gap-4"><span className={`w-3 h-3 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} /><span className="text-xs text-neutral-300 font-bold uppercase">{col.name}</span></div><span className="text-lg font-black text-white">{count}</span></div>)})}</div></div>
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Responsável</h3><div className="flex flex-col gap-3">{responsibles.map((r: any) => { const rTasks = tasks.filter((t: any) => t.responsibleId === r.id); const hours = rTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0); return (<div key={r.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{r.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{rTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
-                <div><h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Cliente</h3><div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto kp-scroll pr-2">{clients.map((c: any) => { const cTasks = tasks.filter((t: any) => t.clientId === c.id); if (cTasks.length === 0) return null; const hours = cTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0); return (<div key={c.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm"><div className="text-base text-neutral-100 font-bold mb-2">{c.name}</div><div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{cTasks.length} Demandas</span><span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span></div></div>)})}</div></div>
+           <div className="flex flex-col gap-6 fade-in">
+             
+             {/* Filtro Button */}
+             <div className="flex justify-start">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); setShowFilters(!showFilters); }} 
+                 className={`h-11 w-full sm:w-auto px-4 flex items-center justify-center gap-2 rounded-xl transition-all shadow-sm shrink-0 border font-bold uppercase tracking-widest text-[10px] ${showFilters ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'glass-panel text-neutral-400 border-white/5 hover:text-white'}`}
+               >
+                 <Filter size={16} /> Filtros
+               </button>
              </div>
-             <div className="flex justify-center mt-auto pt-8 border-t border-[#27272a]">
-                <button onClick={exportTasksCSV} className="w-full md:w-auto flex items-center justify-center gap-2 px-10 py-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all shadow-sm"><Download size={18}/> Baixar Dados (CSV)</button>
+
+             {/* Filtros Container */}
+             {showFilters && (
+               <div className="flex flex-col items-stretch gap-3 w-full animate-fade-in" onClick={e => e.stopPropagation()}>
+                  <div className="glass-panel w-full p-4 rounded-xl flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-4 shadow-sm border-indigo-500/20 bg-[#12121a]">
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+                       <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                       <div className="hidden sm:block w-px h-4 bg-white/10"></div>
+                       <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
+                       <div className="hidden sm:block w-px h-4 bg-white/10"></div>
+                       <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
+                    </div>
+
+                    <div className="hidden lg:block w-px h-4 bg-white/10"></div>
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-black/20 p-3 lg:p-0 lg:bg-transparent rounded-lg border border-white/5 lg:border-none">
+                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                          <label className="text-[10px] uppercase font-bold text-indigo-300 whitespace-nowrap">Criado de:</label>
+                          <input type="date" value={filterCreatedStart} onChange={e => setFilterCreatedStart(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                       </div>
+                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                          <label className="text-[10px] uppercase font-bold text-neutral-500 whitespace-nowrap text-right">Até:</label>
+                          <input type="date" value={filterCreatedEnd} onChange={e => setFilterCreatedEnd(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                       </div>
+                    </div>
+                    
+                    <div className="hidden lg:block w-px h-4 bg-white/10"></div>
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-black/20 p-3 lg:p-0 lg:bg-transparent rounded-lg border border-white/5 lg:border-none">
+                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                          <label className="text-[10px] uppercase font-bold text-emerald-300 whitespace-nowrap">Concluído de:</label>
+                          <input type="date" value={filterCompletedStart} onChange={e => setFilterCompletedStart(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
+                       </div>
+                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+                          <label className="text-[10px] uppercase font-bold text-neutral-500 whitespace-nowrap text-right">Até:</label>
+                          <input type="date" value={filterCompletedEnd} onChange={e => setFilterCompletedEnd(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
+                       </div>
+                    </div>
+
+                    {hasDateFilters && (
+                       <button onClick={() => { setFilterCreatedStart(''); setFilterCreatedEnd(''); setFilterCompletedStart(''); setFilterCompletedEnd(''); }} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[10px] font-bold uppercase tracking-widest transition-colors ml-auto lg:ml-0 mt-2 lg:mt-0">
+                         <X size={12}/> Limpar Datas
+                       </button>
+                    )}
+                  </div>
+               </div>
+             )}
+
+             {/* Area sem duplo-scroll para permitir que a rolagem funcione livremente no telemóvel */}
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                   <h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Fase do Fluxo</h3>
+                   <div className="flex flex-col gap-3">
+                      {COLUMNS.map(col => { 
+                          const count = filteredTasks.filter((t: any) => t.status === col.id).length; 
+                          return (
+                              <div key={col.id} className="flex justify-between items-center bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm">
+                                  <div className="flex items-center gap-4">
+                                      <span className={`w-3 h-3 rounded-full ${col.dot} shadow-[0_0_8px_currentColor]`} />
+                                      <span className="text-xs text-neutral-300 font-bold uppercase">{col.name}</span>
+                                  </div>
+                                  <span className="text-lg font-black text-white">{count}</span>
+                              </div>
+                          )
+                      })}
+                   </div>
+                </div>
+                <div>
+                   <h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Responsável</h3>
+                   <div className="flex flex-col gap-3">
+                      {responsibles.map((r: any) => { 
+                          const rTasks = filteredTasks.filter((t: any) => t.responsibleId === r.id); 
+                          if (rTasks.length === 0) return null;
+                          const hours = rTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0); 
+                          return (
+                              <div key={r.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm">
+                                  <div className="text-base text-neutral-100 font-bold mb-2">{r.name}</div>
+                                  <div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                                      <span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{rTasks.length} Demandas</span>
+                                      <span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span>
+                                  </div>
+                              </div>
+                          )
+                      })}
+                   </div>
+                </div>
+                <div>
+                   <h3 className="text-[10px] font-bold text-neutral-500 mb-4 uppercase tracking-[0.2em] ml-1">Por Cliente</h3>
+                   <div className="flex flex-col gap-3">
+                      {clients.map((c: any) => { 
+                          const cTasks = filteredTasks.filter((t: any) => t.clientId === c.id); 
+                          if (cTasks.length === 0) return null; 
+                          const hours = cTasks.reduce((acc: number, t: any) => acc + (getElapsed(t) / 3600), 0); 
+                          return (
+                              <div key={c.id} className="bg-[#12121a] border border-[#27272a] p-5 rounded-2xl shadow-sm">
+                                  <div className="text-base text-neutral-100 font-bold mb-2">{c.name}</div>
+                                  <div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                                      <span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{cTasks.length} Demandas</span>
+                                      <span className="bg-white/5 px-2.5 py-1 rounded-md border border-white/5">{hours.toFixed(1)}h Totais</span>
+                                  </div>
+                              </div>
+                          )
+                      })}
+                   </div>
+                </div>
+             </div>
+             
+             <div className="flex justify-center mt-6">
+                <button onClick={exportTasksCSV} className="w-full md:w-auto flex items-center justify-center gap-2 px-10 py-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all shadow-sm">
+                   <Download size={18}/> Baixar Dados (CSV)
+                </button>
              </div>
            </div>
         )}
