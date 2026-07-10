@@ -35,6 +35,12 @@ function getBrasiliaDate() {
   return `${year}-${month}-${day}`;
 }
 
+function parseDateLocal(dateStr: string) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-');
+  return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)).setHours(0,0,0,0);
+}
+
 // Verifica se a data do item está dentro do período (início e fim)
 function filterByPeriod(itemDateStr: string, startDateStr: string, endDateStr: string) {
   if (!startDateStr && !endDateStr) return true;
@@ -273,7 +279,7 @@ export default function App() {
        script1.src = 'https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js';
        script1.onload = () => {
           (window as any).MobileDragDrop.polyfill({
-             holdToDrag: 350 // Tempo de clique segurado (0.35s) para iniciar o arraste no mobile
+             holdToDrag: 200 // Diminui o delay de arrasto para 0.2s para ficar mais fluido
           });
           window.addEventListener('touchmove', function() {}, {passive: false});
        };
@@ -394,6 +400,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             priority: t.priority || 'Média',
             clientId: t.clientId || '',
             responsibleId: t.responsibleId || '',
+            startDate: t.startDate || '',
             dueDate: t.dueDate || '',
             waitingFor: t.waitingFor || '',
             checklist: Array.isArray(t.checklist) ? t.checklist : [],
@@ -410,6 +417,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             ...c,
             name: c.name || '',
             lookerUrl: c.lookerUrl || '',
+            ownerId: c.ownerId || '',
             emails: Array.isArray(c.emails) ? c.emails : (typeof c.email === 'string' && c.email ? c.email.split(',').map(e => e.trim()) : []),
             contractedHours: parseFloat(c.contractedHours) || 0
           })));
@@ -456,7 +464,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [activeTooltipCol, setActiveTooltipCol] = useState<string | null>(null);
   
-  // Controle de Filtros
+  // Controle de Filtros Principais
   const [showFilters, setShowFilters] = useState(false);
   const [filterClient, setFilterClient] = useState("all");
   const [filterResp, setFilterResp] = useState("all");
@@ -500,16 +508,21 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     return t.timerElapsed || 0;
   };
 
+  const visibleClients = useMemo(() => {
+    if (user.isAdmin) return clients;
+    return clients.filter(c => c.ownerId === user.id || tasks.some(t => t.clientId === c.id && t.responsibleId === user.id));
+  }, [clients, tasks, user]);
+
   const [dismissedLimits, setDismissedLimits] = useState(new Set());
 
   const clientsNearLimit = useMemo(() => {
-    return clients.filter(c => {
+    return visibleClients.filter(c => {
       if (!c.contractedHours) return false;
       const cTasks = tasks.filter(t => t.clientId === c.id);
       const hours = cTasks.reduce((acc, t) => acc + (getElapsed(t) / 3600), 0);
       return (c.contractedHours - hours) <= 5;
     });
-  }, [clients, tasks, now]);
+  }, [visibleClients, tasks, now]);
 
   const pendingLimitAlerts = clientsNearLimit.filter(c => !dismissedLimits.has(c.id));
 
@@ -532,7 +545,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   
   const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done', 'formalize'].includes(t.status));
 
-  const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, dueDate: "", status: "", waitingFor: "", checklist: [] };
+  const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, startDate: "", dueDate: "", status: "", waitingFor: "", checklist: [] };
 
   function openAddModal(status: string) {
     setValidationError(null);
@@ -591,6 +604,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         durationMin: parseInt(f.durationMin) || 0,
         clientId: f.clientId || '',
         responsibleId: f.responsibleId || '',
+        startDate: f.startDate || '',
         dueDate: f.dueDate || '',
         status: finalStatus,
         waitingFor: f.waitingFor || '',
@@ -629,6 +643,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             durationMin: parseInt(f.durationMin) || 0,
             clientId: f.clientId || '',
             responsibleId: f.responsibleId || '',
+            startDate: f.startDate || '',
             dueDate: f.dueDate || '',
             status: finalStatus,
             waitingFor: f.waitingFor || '',
@@ -846,7 +861,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   };
 
   const handleDragStart = (e: any, taskId: string) => {
-    e.dataTransfer.setData("taskId", taskId);
+    // text/plain is much more reliable across browsers/mobile polyfills
+    e.dataTransfer.setData("text/plain", taskId);
   };
 
   // Avatar sempre atualizado buscando do DB com fallback para o nome
@@ -979,8 +995,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         {/* MODAIS Overlay */}
         {activeTab === 'timer' && <OverlayModal title="Cronómetro" icon={<Clock size={20} className="text-amber-500"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TimerPanelContent tasks={filteredTasks} now={now} getElapsed={getElapsed} onToggleTimer={toggleTimer} user={user} /></OverlayModal>}
         {activeTab === 'responsibles' && <OverlayModal title="Equipe (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} setResponsibles={setResponsibles} tasks={tasks} setTasks={setTasks} user={user} /></OverlayModal>}
-        {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={clients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} now={now} /></OverlayModal>}
-        {activeTab === 'reports' && <AnalyticsModal isClosing={isClosingModal} onClose={handleCloseTab} tasks={filteredTasks} clients={clients} responsibles={responsibles} now={now} getElapsed={getElapsed} globalLookerUrl={globalLookerUrl} setGlobalLookerUrl={setGlobalLookerUrl} />}
+        {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={visibleClients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} now={now} /></OverlayModal>}
+        {activeTab === 'reports' && <AnalyticsModal isClosing={isClosingModal} onClose={handleCloseTab} tasks={filteredTasks} clients={visibleClients} responsibles={responsibles} now={now} getElapsed={getElapsed} globalLookerUrl={globalLookerUrl} setGlobalLookerUrl={setGlobalLookerUrl} />}
 
         {/* BOARD VIEW */}
         <div className={`flex-1 flex flex-col min-h-0 ${activeTab !== 'board' ? 'hidden md:flex opacity-30 pointer-events-none transition-opacity duration-300' : 'fade-in'}`}>
@@ -997,7 +1013,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                      <Filter size={16} /> <span className="hidden lg:inline">Filtros</span>
                    </button>
 
-                   <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0">
+                   <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0 lg:flex">
                      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Progresso</span>
                      <div className="flex-1 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
@@ -1019,7 +1035,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                   <div className="glass-panel w-full p-4 rounded-xl flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-4 shadow-sm border-indigo-500/20 bg-indigo-500/5">
                     
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
-                       <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                       <FilterSelect value={filterClient} onChange={setFilterClient} options={visibleClients} defaultLabel="Todos Clientes" />
                        <div className="hidden sm:block w-px h-4 bg-white/10"></div>
                        <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
                        <div className="hidden sm:block w-px h-4 bg-white/10"></div>
@@ -1095,9 +1111,14 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                         </button>
                       </div>
                       
-                      {/* Área de Cartões - min-h-0 garante que o scroll interno funcione na perfeição no mobile */}     
+                      {/* Área de Cartões */}     
                       <div 
                         className="px-3 pb-3 flex-1 overflow-y-auto overflow-x-hidden kp-scroll flex flex-col gap-3 mt-3 min-h-0"
+                        onDragOver={(e) => { e.preventDefault(); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          handleRequestMove(e.dataTransfer.getData("text/plain"), null, col.id);
+                        }}
                       >
                         {colTasks.length === 0 && (
                           <div className="text-center text-[10px] font-medium uppercase tracking-widest text-neutral-600 py-10 border border-dashed border-white/5 rounded-xl mx-2">
@@ -1114,9 +1135,24 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                           const prStyle = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE.Média;
                           const isDoneOrCancelled = t.status === "done" || t.status === "cancelled" || t.status === "formalize";
                           const isEditable = canEditTask(t.responsibleId);
+                          
+                          const todayMs = new Date().setHours(0, 0, 0, 0);
+                          const startMs = parseDateLocal(t.startDate);
+                          const dueMs = parseDateLocal(t.dueDate);
+                          
+                          let alertBadge = null;
+                          if (!isDoneOrCancelled) {
+                            if (dueMs !== null && dueMs < todayMs) {
+                              alertBadge = <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 font-bold"><AlertTriangle size={10}/> Atrasado</span>;
+                            } else if (dueMs === todayMs) {
+                              alertBadge = <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/20 font-bold"><Clock size={10}/> Entregar Hoje</span>;
+                            } else if (startMs === todayMs) {
+                              alertBadge = <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold"><Play size={10}/> Iniciar Hoje</span>;
+                            }
+                          }
 
                           return (
-                            <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group relative ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={isEditable} onDragStart={(e) => { if(isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("taskId"), t.id, col.id); } }}>
+                            <div key={t.id} className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group relative ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'}`} draggable={isEditable} onDragStart={(e) => { if(isEditable) handleDragStart(e, t.id); }} onDragOver={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(t.id); } }} onDragLeave={() => setDragOverId(null)} onDrop={(e) => { if(isEditable) { e.preventDefault(); e.stopPropagation(); setDragOverId(null); handleRequestMove(e.dataTransfer.getData("text/plain"), t.id, col.id); } }}>
                               
                               {/* Badges do Cartão */}
                               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -1125,6 +1161,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                                   <span className={`flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md border font-bold ${prStyle.bg} ${prStyle.text} ${prStyle.border}`}>
                                     <span className={`w-1 h-1 rounded-full ${prStyle.dot}`} /> {t.priority}
                                   </span>
+                                  {alertBadge}
                                 </div>
                                 
                                 {isEditable ? (
@@ -1349,7 +1386,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
 
       {/* Modais de Popups Principais */}
       {closureModal && <ClosureModal tasks={tasksForClosure} clients={clients} responsibles={responsibles} onClose={() => setClosureModal(false)} onFormalize={(clientId: string | null) => { if (clientId) { setTasks((prev: any) => prev.map((t: any) => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t)); } else { setTasks((prev: any) => prev.map((t: any) => t.status === 'done' ? { ...t, status: 'formalize' } : t)); setClosureModal(false); } }} />}
-      {modal && <TaskModal modal={modal} setModal={setModal} clients={clients} responsibles={responsibles} closeModal={closeModal} saveModal={saveModal} validationError={validationError} setValidationError={setValidationError} />}
+      {modal && <TaskModal modal={modal} setModal={setModal} clients={visibleClients} responsibles={responsibles} closeModal={closeModal} saveModal={saveModal} validationError={validationError} setValidationError={setValidationError} user={user} />}
     </div>
   );
 }
@@ -1470,7 +1507,7 @@ function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }: 
            </div>
            <button onClick={onClose} className="p-2.5 rounded-xl text-neutral-500 hover:bg-white/5 hover:text-white transition-colors shrink-0"><X size={20}/></button>
         </div>
-        <div className="flex-1 overflow-y-auto kp-scroll p-5 sm:p-8 bg-[#09090b]">
+        <div className="flex-1 overflow-y-auto kp-scroll p-5 sm:p-8 bg-[#09090b] flex flex-col">
           {children}
         </div>
       </div>
@@ -1611,7 +1648,7 @@ function ResponsiblesPanelContent({ responsibles, setResponsibles, tasks, setTas
   );
 }
 
-function ClientModal({ modal, setModal, setClients }: any) {
+function ClientModal({ modal, setModal, setClients, user }: any) {
   const [form, setForm] = useState(modal.form);
   const [newEmail, setNewEmail] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -1627,7 +1664,18 @@ function ClientModal({ modal, setModal, setClients }: any) {
 
   const saveClient = () => {
     if (!form.name || !form.name.trim()) { setValidationError("O nome do cliente é obrigatório."); return; }
-    if (modal.mode === "add") { setClients((prev: any) => [...prev, { ...form, id: 'c' + Date.now() }]); } else { setClients((prev: any) => prev.map((c: any) => c.id === form.id ? form : c)); }
+    
+    // Tratamento para garantir que as horas contratadas sejam um número ou 0
+    const finalForm = { 
+       ...form, 
+       contractedHours: form.contractedHours === '' ? 0 : parseFloat(form.contractedHours) || 0 
+    };
+
+    if (modal.mode === "add") { 
+       setClients((prev: any) => [...prev, { ...finalForm, id: 'c' + Date.now(), ownerId: user.id }]); 
+    } else { 
+       setClients((prev: any) => prev.map((c: any) => c.id === finalForm.id ? finalForm : c)); 
+    }
     setModal(null);
   };
 
@@ -1647,7 +1695,7 @@ function ClientModal({ modal, setModal, setClients }: any) {
 
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Teto de Horas Contratadas (Mensal)</label>
-            <input type="number" value={form.contractedHours || ''} onChange={(e) => setForm({ ...form, contractedHours: e.target.value })} className={`w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-purple-500 transition-colors`} placeholder="Ex: 50" />
+            <input type="number" value={form.contractedHours === 0 ? '' : form.contractedHours} onChange={(e) => setForm({ ...form, contractedHours: e.target.value })} className={`w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-purple-500 transition-colors`} placeholder="Ex: 50" />
           </div>
 
           <div>
@@ -1770,7 +1818,7 @@ function ClientsPanelContent({ clients, setClients, tasks, setTasks, user, getEl
           )
         })}
       </div>
-      {clientModal && <ClientModal modal={clientModal} setModal={setClientModal} setClients={setClients} />}
+      {clientModal && <ClientModal modal={clientModal} setModal={setClientModal} setClients={setClients} user={user} />}
     </div>
   );
 }
@@ -1832,7 +1880,7 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
 
   return (
     <OverlayModal title="Lumina Analytics" icon={<BarChart3 className="text-blue-500" size={24}/>} onClose={onClose} fullWidth isClosing={isClosing}>
-      <div className="flex flex-col h-full fade-in pb-8">
+      <div className="flex flex-col min-h-full fade-in pb-8">
         
         {/* Toggle View */}
         <div className="flex justify-center mb-8 shrink-0">
@@ -2274,8 +2322,17 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
           <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Contexto / Descrição *</label><textarea value={modal.form.description || ''} onChange={(e) => updateForm({ description: e.target.value })} rows={4} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 resize-none transition-all ${validationError && String(validationError).includes("Descrição") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Descreva os requisitos técnicos ou regras de negócio..." /></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Prioridade *" required hasError={validationError && String(validationError).includes("Prioridade")} value={modal.form.priority || ''} onChange={(e: any) => updateForm({ priority: e.target.value })} options={<><option value="" className="bg-[#1c1d26] text-white">Selecione...</option><option value="Baixa" className="bg-[#1c1d26] text-white">Baixa</option><option value="Média" className="bg-[#1c1d26] text-white">Média</option><option value="Alta" className="bg-[#1c1d26] text-white">Alta</option></>} /><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Est. Minutos</label><input type="number" value={modal.form.durationMin ?? ''} onChange={(e) => updateForm({ durationMin: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 shadow-sm" placeholder="Ex: 60" /></div></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><CustomSelect label="Responsável *" required hasError={validationError && String(validationError).includes("Responsável")} value={modal.form.responsibleId || ''} onChange={(e: any) => updateForm({ responsibleId: e.target.value })} options={<><option value="" className="bg-[#1c1d26] text-white">Selecione a pessoa...</option>{responsibles.map((r: any) => <option key={r.id} value={r.id} className="bg-[#1c1d26] text-white">{r.name}</option>)}</>} /><CustomSelect label="Cliente *" required hasError={validationError && String(validationError).includes("Cliente")} value={modal.form.clientId || ''} onChange={(e: any) => updateForm({ clientId: e.target.value })} options={<><option value="" className="bg-[#1c1d26] text-white">Selecione a empresa...</option>{clients.map((c: any) => <option key={c.id} value={c.id} className="bg-[#1c1d26] text-white">{c.name}</option>)}</>} /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"><div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Prazo/Deadline</label><input type="date" value={modal.form.dueDate || ''} onChange={(e) => updateForm({ dueDate: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark] shadow-sm" /></div><CustomSelect label="Fase do Fluxo *" required hasError={validationError && String(validationError).includes("Fase")} value={modal.form.status || ''} onChange={(e: any) => updateForm({ status: e.target.value, waitingFor: e.target.value === 'waiting' ? modal.form.waitingFor : "" })} options={<><option value="" className="bg-[#1c1d26] text-white">Selecionar...</option>{COLUMNS.map(c => <option key={c.id} value={c.id} className="bg-[#1c1d26] text-white">{c.name}</option>)}</>} /></div>
-          {modal.form.status === 'waiting' && <div className="animate-fade-in"><CustomSelect label="Dependência *" required hasError={validationError && String(validationError).includes("Dependência")} value={modal.form.waitingFor || ''} onChange={(e: any) => updateForm({ waitingFor: e.target.value })} options={<><option value="" className="bg-[#1c1d26] text-white">Pendente de quem?</option><option value="Cliente" className="bg-[#1c1d26] text-white">Cliente</option><option value="Time Interno" className="bg-[#1c1d26] text-white">Time Interno</option></>} /></div>}
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Data de Início</label><input type="date" value={modal.form.startDate || ''} onChange={(e) => updateForm({ startDate: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark] shadow-sm" /></div>
+            <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Prazo / Deadline</label><input type="date" value={modal.form.dueDate || ''} onChange={(e) => updateForm({ dueDate: e.target.value })} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 [color-scheme:dark] shadow-sm" /></div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+             <CustomSelect label="Fase do Fluxo *" required hasError={validationError && String(validationError).includes("Fase")} value={modal.form.status || ''} onChange={(e: any) => updateForm({ status: e.target.value, waitingFor: e.target.value === 'waiting' ? modal.form.waitingFor : "" })} options={<><option value="" className="bg-[#1c1d26] text-white">Selecionar...</option>{COLUMNS.map(c => <option key={c.id} value={c.id} className="bg-[#1c1d26] text-white">{c.name}</option>)}</>} />
+             {modal.form.status === 'waiting' && <div className="animate-fade-in"><CustomSelect label="Dependência *" required hasError={validationError && String(validationError).includes("Dependência")} value={modal.form.waitingFor || ''} onChange={(e: any) => updateForm({ waitingFor: e.target.value })} options={<><option value="" className="bg-[#1c1d26] text-white">Pendente de quem?</option><option value="Cliente" className="bg-[#1c1d26] text-white">Cliente</option><option value="Time Interno" className="bg-[#1c1d26] text-white">Time Interno</option></>} /></div>}
+          </div>
+          
           <div className="mt-2"><div className="flex items-center justify-between mb-3"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 ml-1">Checklist de Passos</label><button onClick={addChecklistRow} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors p-1 flex items-center gap-1"><Plus size={12}/> Adicionar Passo</button></div><div className="flex flex-col gap-3 pb-safe">{(modal.form.checklist || []).map((c: any) => (<div key={c.id} className="flex items-center gap-3"><button onClick={() => { setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map((ci: any) => ci.id === c.id ? { ...ci, done: !ci.done } : ci) } })); }} className={`p-2.5 border rounded-xl transition-all shrink-0 ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-[#12121a] border-[#27272a] text-neutral-700 hover:text-neutral-500 hover:bg-white/5'}`}><Check size={16}/></button><input value={c.text || ''} onChange={(e) => { setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map((ci: any) => ci.id === c.id ? { ...ci, text: e.target.value } : ci) } })); }} className="flex-1 bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all shadow-sm" placeholder="O que precisa ser feito?" /><button onClick={() => setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.filter((ci: any) => ci.id !== c.id) } }))} className="p-2.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"><X size={18} /></button></div>))}</div></div>
         </div>
         <div className="px-6 sm:px-8 py-5 border-t border-[#27272a] flex flex-col sm:flex-row items-center justify-end gap-3 bg-[#0f0f13] shrink-0 pb-[max(env(safe-area-inset-bottom),1.25rem)] md:pb-5"><button onClick={closeModal} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors">Cancelar</button><button onClick={saveModal} className="w-full sm:w-auto text-xs font-black uppercase tracking-[0.15em] px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)]">Salvar Demanda</button></div>
