@@ -1055,6 +1055,9 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         input[type=number] { -moz-appearance: textfield; }
         
         input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+        input[type="date"] { -webkit-appearance: none; appearance: none; display: flex; align-items: center; }
+        input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+        input[type="date"]::-webkit-datetime-edit { padding: 0; line-height: 1; }
 
         .glass-panel { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
       `}</style>
@@ -2057,52 +2060,60 @@ function AnalyticsModal({ onClose, tasks, clients, responsibles, now, getElapsed
              </div>
 
              {/* Filtros Container */}
-             {showFilters && (
-               <div className="flex flex-col items-stretch gap-3 w-full animate-fade-in" onClick={e => e.stopPropagation()}>
-                  <div className="glass-panel w-full p-4 rounded-xl flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-4 shadow-sm border-indigo-500/20 bg-[#12121a]">
-                    
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
-                       <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
-                       <div className="hidden sm:block w-px h-4 bg-white/10"></div>
-                       <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
-                       <div className="hidden sm:block w-px h-4 bg-white/10"></div>
-                       <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
-                    </div>
+               {showFilters && (
+                 <div className="w-full animate-fade-in" onClick={e => e.stopPropagation()}>
+                    <div className="glass-panel w-full p-4 sm:p-5 rounded-2xl flex flex-col gap-4 shadow-sm border border-indigo-500/20">
 
-                    <div className="hidden lg:block w-px h-4 bg-white/10"></div>
-                    
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-black/20 p-3 lg:p-0 lg:bg-transparent rounded-lg border border-white/5 lg:border-none">
-                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-                          <label className="text-[10px] uppercase font-bold text-indigo-300 whitespace-nowrap">Criado de:</label>
-                          <input type="date" value={filterCreatedStart} onChange={e => setFilterCreatedStart(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
-                       </div>
-                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-                          <label className="text-[10px] uppercase font-bold text-neutral-500 whitespace-nowrap text-right">Até:</label>
-                          <input type="date" value={filterCreatedEnd} onChange={e => setFilterCreatedEnd(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
-                       </div>
-                    </div>
-                    
-                    <div className="hidden lg:block w-px h-4 bg-white/10"></div>
-                    
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-black/20 p-3 lg:p-0 lg:bg-transparent rounded-lg border border-white/5 lg:border-none">
-                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-                          <label className="text-[10px] uppercase font-bold text-emerald-300 whitespace-nowrap">Concluído de:</label>
-                          <input type="date" value={filterCompletedStart} onChange={e => setFilterCompletedStart(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
-                       </div>
-                       <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
-                          <label className="text-[10px] uppercase font-bold text-neutral-500 whitespace-nowrap text-right">Até:</label>
-                          <input type="date" value={filterCompletedEnd} onChange={e => setFilterCompletedEnd(e.target.value)} className="bg-[#12121a] lg:bg-transparent border border-[#27272a] lg:border-none rounded-lg px-2.5 py-1.5 lg:py-0 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
-                       </div>
-                    </div>
+                      {/* Seletores */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+                         <FilterSelect value={filterClient} onChange={setFilterClient} options={clients} defaultLabel="Todos Clientes" />
+                         <div className="hidden sm:block w-px h-4 bg-white/10"></div>
+                         <FilterSelect value={filterResp} onChange={setFilterResp} options={responsibles} defaultLabel="Todos Responsáveis" />
+                         <div className="hidden sm:block w-px h-4 bg-white/10"></div>
+                         <FilterSelect value={filterPriority} onChange={setFilterPriority} options={[{id: 'Baixa', name: 'Baixa'}, {id: 'Média', name: 'Média'}, {id: 'Alta', name: 'Alta'}]} defaultLabel="Prioridades" />
+                      </div>
 
-                    {hasDateFilters && (
-                       <button onClick={() => { setFilterCreatedStart(''); setFilterCreatedEnd(''); setFilterCompletedStart(''); setFilterCompletedEnd(''); }} className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[10px] font-bold uppercase tracking-widest transition-colors ml-auto lg:ml-0 mt-2 lg:mt-0">
-                         <X size={12}/> Limpar Datas
-                       </button>
-                    )}
-                  </div>
-               </div>
-             )}
+                      <div className="h-px w-full bg-white/5"></div>
+
+                      {/* Intervalos de data */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                         <div className="rounded-xl border border-white/5 bg-black/20 p-3.5 flex flex-col gap-2.5">
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-indigo-300 flex items-center gap-1.5"><Clock size={12}/> Criado entre</span>
+                            <div className="grid grid-cols-2 gap-2">
+                               <div className="flex flex-col gap-1">
+                                  <label className="text-[9px] uppercase font-bold text-neutral-500 ml-0.5">De</label>
+                                  <input type="date" value={filterCreatedStart} onChange={e => setFilterCreatedStart(e.target.value)} className="w-full bg-[#12121a] border border-[#27272a] rounded-lg px-3 h-10 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                               </div>
+                               <div className="flex flex-col gap-1">
+                                  <label className="text-[9px] uppercase font-bold text-neutral-500 ml-0.5">Até</label>
+                                  <input type="date" value={filterCreatedEnd} onChange={e => setFilterCreatedEnd(e.target.value)} className="w-full bg-[#12121a] border border-[#27272a] rounded-lg px-3 h-10 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]" />
+                               </div>
+                            </div>
+                         </div>
+
+                         <div className="rounded-xl border border-white/5 bg-black/20 p-3.5 flex flex-col gap-2.5">
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-300 flex items-center gap-1.5"><CheckCircle2 size={12}/> Concluído entre</span>
+                            <div className="grid grid-cols-2 gap-2">
+                               <div className="flex flex-col gap-1">
+                                  <label className="text-[9px] uppercase font-bold text-neutral-500 ml-0.5">De</label>
+                                  <input type="date" value={filterCompletedStart} onChange={e => setFilterCompletedStart(e.target.value)} className="w-full bg-[#12121a] border border-[#27272a] rounded-lg px-3 h-10 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
+                               </div>
+                               <div className="flex flex-col gap-1">
+                                  <label className="text-[9px] uppercase font-bold text-neutral-500 ml-0.5">Até</label>
+                                  <input type="date" value={filterCompletedEnd} onChange={e => setFilterCompletedEnd(e.target.value)} className="w-full bg-[#12121a] border border-[#27272a] rounded-lg px-3 h-10 text-xs text-white outline-none focus:border-emerald-500 [color-scheme:dark]" />
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+
+                      {hasDateFilters && (
+                         <button onClick={() => { setFilterCreatedStart(''); setFilterCreatedEnd(''); setFilterCompletedStart(''); setFilterCompletedEnd(''); }} className="self-end flex items-center justify-center gap-1.5 px-4 h-9 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[10px] font-bold uppercase tracking-widest transition-colors">
+                           <X size={12}/> Limpar Datas
+                         </button>
+                      )}
+                    </div>
+                 </div>
+               )}
 
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
@@ -2236,6 +2247,9 @@ function buildGCalLink(task: any, clientName: string) {
 }
 
 function CalendarView({ tasks, setTasks, clients, handleRequestMove }: any) {
+  const ROW_H = 44; // pixels por hora
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+
   const [weekStart, setWeekStart] = useState(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0);
     const dow = (d.getDay() + 6) % 7; // 0 = segunda
@@ -2243,78 +2257,141 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove }: any) {
     return d;
   });
 
-  const days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(weekStart);
-      d.setDate(weekStart.getDate() + i);
-      return d;
-    });
-  }, [weekStart]);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
+  }), [weekStart]);
 
-  const schedule = (taskId: string, value: string) => {
-    setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, scheduledStart: value } : t));
-  };
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
   const clientName = (id: string) => clients.find((c: any) => c.id === id)?.name || '';
-
   const isActionable = (t: any) => !['done', 'cancelled', 'formalize'].includes(t.status);
   const unscheduled = tasks.filter((t: any) => isActionable(t) && !t.scheduledStart);
 
-  const tasksOnDay = (day: Date) => {
-    return tasks
-      .filter((t: any) => {
-        if (!t.scheduledStart) return false;
-        const s = new Date(t.scheduledStart);
-        return s.getFullYear() === day.getFullYear() && s.getMonth() === day.getMonth() && s.getDate() === day.getDate();
-      })
-      .sort((a: any, b: any) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+  const tasksOnDay = (day: Date) => tasks.filter((t: any) => {
+    if (!t.scheduledStart) return false;
+    const s = new Date(t.scheduledStart);
+    return s.getFullYear() === day.getFullYear() && s.getMonth() === day.getMonth() && s.getDate() === day.getDate();
+  });
+
+  const setSchedule = (taskId: string, value: string) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, scheduledStart: value } : t));
+  const setDuration = (taskId: string, dur: number) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, durationMin: dur } : t));
+
+  const scheduleAndStart = (task: any, day: Date, hour: number, minute: number) => {
+    const start = new Date(day); start.setHours(hour, minute, 0, 0);
+    const value = toLocalInput(start);
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, status: 'inprogress' } : t));
+    const durMin = task.durationMin && task.durationMin > 0 ? task.durationMin : 60;
+    const end = new Date(start.getTime() + durMin * 60000);
+    const text = encodeURIComponent(task.title || 'Demanda');
+    const cn = clientName(task.clientId);
+    let details = task.description || '';
+    if (cn) details = `Cliente: ${cn}\n\n${details}`;
+    const link = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&details=${encodeURIComponent(details)}&dates=${toGCalStamp(start)}/${toGCalStamp(end)}`;
+    window.open(link, '_blank', 'noopener');
   };
 
-  const fmtTime = (s: string) => {
-    const d = new Date(s);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  // Arraste (colocar/mover) e redimensionar via Pointer Events
+  const dragRef = useRef<any>(null);
+  const resizeRef = useRef<any>(null);
+  const [ghost, setGhost] = useState<{ x: number, y: number, label: string } | null>(null);
+  const [resizePreview, setResizePreview] = useState<{ id: string, dur: number } | null>(null);
+
+  const beginDrag = (e: React.PointerEvent, task: any, mode: 'place' | 'move') => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    dragRef.current = { task, mode };
+    setGhost({ x: e.clientX, y: e.clientY, label: task.title });
+    (e.target as Element).setPointerCapture?.(e.pointerId);
   };
+
+  const beginResize = (e: React.PointerEvent, task: any, blockTop: number) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    dragRef.current = { task, mode: 'resize', blockTop };
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (d.mode === 'resize') {
+      const rawMin = ((e.clientY - d.blockTop) / ROW_H) * 60;
+      const snapped = Math.min(24 * 60, Math.max(30, Math.round(rawMin / 30) * 30));
+      resizeRef.current = { id: d.task.id, dur: snapped };
+      setResizePreview({ id: d.task.id, dur: snapped });
+    } else {
+      setGhost({ x: e.clientX, y: e.clientY, label: d.task.title });
+    }
+  };
+
+  const resolveDrop = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y);
+    const col = el ? (el as Element).closest('[data-cal-day]') : null;
+    if (!col) return null;
+    const idx = parseInt(col.getAttribute('data-cal-day') || '-1', 10);
+    if (idx < 0) return null;
+    const rect = col.getBoundingClientRect();
+    const rawMin = ((y - rect.top) / ROW_H) * 60;
+    const snapped = Math.max(0, Math.min(23 * 60 + 30, Math.round(rawMin / 30) * 30));
+    return { dayIndex: idx, hour: Math.floor(snapped / 60), minute: snapped % 60 };
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (d && d.mode === 'resize') {
+      const rp = resizeRef.current; resizeRef.current = null;
+      if (rp) setDuration(rp.id, rp.dur);
+      setResizePreview(null);
+      return;
+    }
+    setGhost(null);
+    if (!d) return;
+    const drop = resolveDrop(e.clientX, e.clientY);
+    if (!drop) return;
+    const day = days[drop.dayIndex];
+    if (!day) return;
+    if (d.mode === 'place') {
+      scheduleAndStart(d.task, day, drop.hour, drop.minute);
+    } else {
+      const start = new Date(day); start.setHours(drop.hour, drop.minute, 0, 0);
+      setSchedule(d.task.id, toLocalInput(start));
+    }
+  };
+
   const dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const todayKey = new Date().setHours(0, 0, 0, 0);
-  const weekLabel = `${days[0].getDate().toString().padStart(2, '0')}/${(days[0].getMonth() + 1).toString().padStart(2, '0')} – ${days[6].getDate().toString().padStart(2, '0')}/${(days[6].getMonth() + 1).toString().padStart(2, '0')}`;
-
-  const shiftWeek = (dir: number) => {
-    setWeekStart(prev => { const d = new Date(prev); d.setDate(prev.getDate() + dir * 7); return d; });
-  };
-  const goToday = () => {
-    const d = new Date(); d.setHours(0, 0, 0, 0);
-    const dow = (d.getDay() + 6) % 7;
-    d.setDate(d.getDate() - dow);
-    setWeekStart(d);
-  };
+  const weekLabel = `${pad(days[0].getDate())}/${pad(days[0].getMonth() + 1)} – ${pad(days[6].getDate())}/${pad(days[6].getMonth() + 1)}`;
+  const shiftWeek = (dir: number) => setWeekStart(prev => { const d = new Date(prev); d.setDate(prev.getDate() + dir * 7); return d; });
+  const goToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); setWeekStart(d); };
 
   return (
-    <div className="flex flex-col h-full fade-in gap-6">
-      <p className="text-sm text-neutral-400 text-center max-w-2xl mx-auto">
-        Agende suas demandas nos horários que vai atuar para ter noção do seu tempo. Cada bloco gera um botão que abre o Google Agenda já preenchido — você só confirma o evento.
+    <div className="flex flex-col h-full fade-in gap-5" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+      <p className="text-sm text-neutral-400 text-center max-w-2xl mx-auto shrink-0">
+        Arraste uma demanda de "A Agendar" para o dia e horário em que vai atuar. Ao soltar, o card vai para "Em Andamento" e o Google Agenda abre já preenchido. Arraste a borda inferior de um bloco para ajustar a duração.
       </p>
 
       {/* A agendar */}
       <div className="shrink-0">
         <h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-1">A Agendar ({unscheduled.length})</h3>
         {unscheduled.length === 0 ? (
-          <div className="text-center text-xs text-neutral-600 py-6 border border-dashed border-[#27272a] rounded-2xl">Todas as demandas ativas já estão agendadas.</div>
+          <div className="text-center text-xs text-neutral-600 py-5 border border-dashed border-[#27272a] rounded-2xl">Todas as demandas ativas já estão agendadas.</div>
         ) : (
-          <div className="flex flex-col gap-2 max-h-52 overflow-y-auto kp-scroll pr-1">
+          <div className="flex gap-2 overflow-x-auto kp-scroll pb-2">
             {unscheduled.map((t: any) => (
-              <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#12121a] border border-[#27272a] rounded-2xl p-4">
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-white truncate">{t.title}</div>
-                  <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mt-0.5 flex items-center gap-2 flex-wrap">
-                    {clientName(t.clientId) && <span className="flex items-center gap-1"><Building2 size={10} /> {clientName(t.clientId)}</span>}
-                    {t.durationMin > 0 && <span>{t.durationMin} min</span>}
+              <div key={t.id} onPointerDown={(e) => beginDrag(e, t, 'place')} style={{ touchAction: 'none' }}
+                className="shrink-0 w-56 cursor-grab active:cursor-grabbing rounded-2xl bg-[#12121a] border border-[#27272a] hover:border-teal-500/40 p-3.5 select-none transition-colors">
+                <div className="flex items-start gap-2">
+                  <GripVertical size={16} className="text-neutral-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-white truncate">{t.title}</div>
+                    <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mt-1 flex items-center gap-2 flex-wrap">
+                      {clientName(t.clientId) && <span className="flex items-center gap-1 truncate"><Building2 size={10} /> {clientName(t.clientId)}</span>}
+                      <span>{t.durationMin > 0 ? `${t.durationMin}min` : '60min'}</span>
+                    </div>
                   </div>
                 </div>
-                <input
-                  type="datetime-local"
-                  onChange={e => e.target.value && schedule(t.id, e.target.value)}
-                  className="bg-[#09090b] border border-[#27272a] rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-teal-500 [color-scheme:dark] shrink-0"
-                />
               </div>
             ))}
           </div>
@@ -2322,7 +2399,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove }: any) {
       </div>
 
       {/* Navegação de semana */}
-      <div className="flex items-center justify-between shrink-0 border-t border-[#27272a] pt-5">
+      <div className="flex items-center justify-between shrink-0 border-t border-[#27272a] pt-4">
         <button onClick={() => shiftWeek(-1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors"><ChevronLeft size={18} /></button>
         <div className="flex items-center gap-3">
           <span className="text-sm font-bold text-white">{weekLabel}</span>
@@ -2331,51 +2408,66 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove }: any) {
         <button onClick={() => shiftWeek(1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors"><ChevronRight size={18} /></button>
       </div>
 
-      {/* Grade da semana (rolagem horizontal, igual ao board) */}
-      <div className="flex-1 overflow-x-auto kp-scroll -mx-1 px-1">
-        <div className="flex gap-3 min-w-max h-full pb-2">
+      {/* Grade 24h */}
+      <div className="flex-1 overflow-auto kp-scroll border border-[#27272a] rounded-2xl bg-[#0d0d12] min-h-[240px]">
+        <div className="flex min-w-max">
+          {/* Gutter de horas */}
+          <div className="sticky left-0 z-20 bg-[#0d0d12] border-r border-white/5 shrink-0" style={{ width: 46 }}>
+            <div className="h-9 border-b border-white/5" />
+            {hours.map(h => (
+              <div key={h} className="text-[9px] font-mono text-neutral-600 text-right pr-2" style={{ height: ROW_H, marginTop: h === 0 ? 0 : 0 }}>
+                <span className="relative -top-1.5">{pad(h)}:00</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Colunas dos dias */}
           {days.map((day, i) => {
             const dayTasks = tasksOnDay(day);
-            const isToday = day.setHours(0, 0, 0, 0) === todayKey;
-            const dayLoadMin = dayTasks.reduce((acc: number, t: any) => acc + (t.durationMin > 0 ? t.durationMin : 60), 0);
+            const isToday = new Date(day).setHours(0, 0, 0, 0) === todayKey;
             return (
-              <div key={i} className={`w-[78vw] max-w-[280px] sm:w-[260px] shrink-0 rounded-2xl border flex flex-col ${isToday ? 'border-teal-500/40 bg-teal-500/[0.03]' : 'border-[#27272a] bg-[#12121a]'}`}>
-                <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold uppercase tracking-widest ${isToday ? 'text-teal-400' : 'text-white'}`}>{dayNames[i]} {day.getDate().toString().padStart(2, '0')}</span>
-                  </div>
-                  {dayLoadMin > 0 && <span className="text-[9px] font-bold uppercase tracking-widest bg-black/40 text-neutral-400 px-2 py-1 rounded-md border border-white/5">{(dayLoadMin / 60).toFixed(1)}h</span>}
+              <div key={i} className={`shrink-0 border-r border-white/5 ${isToday ? 'bg-teal-500/[0.04]' : ''}`} style={{ width: 150 }}>
+                <div className={`h-9 sticky top-0 z-10 flex items-center justify-center border-b border-white/5 ${isToday ? 'bg-teal-600/20 text-teal-300' : 'bg-[#12121a] text-neutral-300'}`}>
+                  <span className="text-[11px] font-bold uppercase tracking-widest">{dayNames[i]} {pad(day.getDate())}</span>
                 </div>
-                <div className="p-3 flex flex-col gap-3 overflow-y-auto kp-scroll flex-1 min-h-[120px]">
-                  {dayTasks.length === 0 && <div className="text-center text-[10px] text-neutral-700 uppercase tracking-widest py-6">Livre</div>}
-                  {dayTasks.map((t: any) => (
-                    <div key={t.id} className="rounded-xl bg-[#1c1d26] border border-[#2d3142] p-3">
-                      <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-teal-400 mb-1.5">
-                        <Clock size={11} /> {fmtTime(t.scheduledStart)} · {t.durationMin > 0 ? `${t.durationMin}min` : '60min'}
-                      </div>
-                      <div className="text-[12px] font-bold text-white leading-snug mb-1">{t.title}</div>
-                      {clientName(t.clientId) && <div className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold mb-2 truncate">{clientName(t.clientId)}</div>}
-                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                        <a href={buildGCalLink(t, clientName(t.clientId))} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest bg-teal-500/10 text-teal-400 border border-teal-500/20 px-2 py-1.5 rounded-lg hover:bg-teal-500/20 transition-colors">
-                          <ExternalLink size={11} /> Google Agenda
-                        </a>
-                        {t.status !== 'inprogress' && (
-                          <button onClick={() => handleRequestMove(t.id, null, 'inprogress')} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-1.5 rounded-lg hover:bg-blue-500/20 transition-colors">
-                            <Play size={11} /> Iniciar
-                          </button>
-                        )}
-                        <button onClick={() => schedule(t.id, '')} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest bg-white/5 text-neutral-400 border border-white/10 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
-                          <X size={11} /> Desagendar
-                        </button>
-                      </div>
-                    </div>
+                <div data-cal-day={i} className="relative" style={{ height: 24 * ROW_H }}>
+                  {hours.map(h => (
+                    <div key={h} className="absolute left-0 right-0 border-b border-white/5 pointer-events-none" style={{ top: h * ROW_H, height: ROW_H }} />
                   ))}
+                  {dayTasks.map((t: any) => {
+                    const s = new Date(t.scheduledStart);
+                    const top = (s.getHours() + s.getMinutes() / 60) * ROW_H;
+                    const dur = (resizePreview && resizePreview.id === t.id) ? resizePreview.dur : (t.durationMin > 0 ? t.durationMin : 60);
+                    const bh = Math.max(ROW_H * 0.6, (dur / 60) * ROW_H);
+                    const cn = clientName(t.clientId);
+                    return (
+                      <div key={t.id} className="absolute left-1 right-1 rounded-lg bg-teal-500/15 border border-teal-500/40 overflow-hidden group" style={{ top, height: bh }}>
+                        <div onPointerDown={(e) => beginDrag(e, t, 'move')} style={{ touchAction: 'none' }} className="h-full p-1.5 cursor-grab active:cursor-grabbing select-none">
+                          <div className="text-[9px] font-mono font-bold text-teal-300 leading-none mb-1">{pad(s.getHours())}:{pad(s.getMinutes())} · {dur}min</div>
+                          <div className="text-[10px] font-bold text-white leading-tight line-clamp-2">{t.title}</div>
+                          {cn && bh > ROW_H && <div className="text-[8px] text-teal-300/70 uppercase tracking-widest font-bold mt-1 truncate">{cn}</div>}
+                        </div>
+                        <div className="absolute top-1 right-1 flex gap-1">
+                          <a href={buildGCalLink(t, cn)} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} className="p-1 rounded bg-black/40 text-teal-300 hover:bg-black/60" title="Abrir no Google Agenda"><ExternalLink size={11} /></a>
+                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setSchedule(t.id, '')} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-red-400 hover:bg-black/60" title="Desagendar"><X size={11} /></button>
+                        </div>
+                        <div onPointerDown={(e) => { const rect = (e.currentTarget.parentElement as Element).getBoundingClientRect(); beginResize(e, t, rect.top); }} style={{ touchAction: 'none' }} className="absolute bottom-0 left-0 right-0 h-2.5 cursor-ns-resize bg-teal-500/40 opacity-0 group-hover:opacity-100 transition-opacity" title="Ajustar duração" />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Ghost durante o arraste */}
+      {ghost && (
+        <div className="fixed z-[300] pointer-events-none px-3 py-2 rounded-lg bg-teal-600 border border-teal-400 shadow-2xl text-[11px] font-bold text-white max-w-[220px] truncate" style={{ left: ghost.x + 12, top: ghost.y + 12 }}>
+          {ghost.label}
+        </div>
+      )}
     </div>
   );
 }
