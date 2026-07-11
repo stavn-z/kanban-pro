@@ -629,6 +629,17 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const canEditTask = (taskRespId: string) => taskRespId === user.id;
 
   const visibleTasks = user.isAdmin ? tasks : tasks.filter(t => t.responsibleId === user.id);
+
+  const overdueCount = useMemo(() => {
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+    return tasks.filter(t => {
+      if (t.responsibleId !== user.id) return false;
+      if (['done', 'cancelled', 'formalize'].includes(t.status)) return false;
+      if (!t.dueDate) return false;
+      const [y, m, d] = t.dueDate.split('-');
+      return new Date(+y, +m - 1, +d).setHours(0, 0, 0, 0) < todayMs;
+    }).length;
+  }, [tasks, user]);
   
   const filteredTasks = visibleTasks.filter(
     (t) =>
@@ -1071,6 +1082,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
           
           <div className="flex flex-col items-center gap-3 w-full px-3">
              <SidebarBtn icon={<LayoutDashboard size={20} />} active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} tooltip="Pipeline" />
+             <SidebarBtn icon={<Sun size={20} />} active={activeTab === 'today' && !isClosingModal} onClick={() => setActiveTab('today')} tooltip="Meu Dia" alert={overdueCount > 0} />
              <SidebarBtn icon={<Clock size={20} />} active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} tooltip="Timer" />
              <SidebarBtn icon={<CalendarDays size={20} />} active={activeTab === 'agenda' && !isClosingModal} onClick={() => setActiveTab('agenda')} tooltip="Agenda" />
              <SidebarBtn icon={<Users size={20} />} active={activeTab === 'responsibles' && !isClosingModal} onClick={() => setActiveTab('responsibles')} tooltip="Equipe" />
@@ -1143,6 +1155,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         </div>
 
         {/* MODAIS Overlay */}
+        {activeTab === 'today' && <OverlayModal title="Meu Dia" icon={<Sun size={20} className="text-amber-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TodayView tasks={tasks} clients={clients} user={user} now={now} getElapsed={getElapsed} onOpen={openEditModal} onToggleTimer={toggleTimer} /></OverlayModal>}
         {activeTab === 'timer' && <OverlayModal title="Cronómetro" icon={<Clock size={20} className="text-amber-500"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TimerPanelContent tasks={filteredTasks} now={now} getElapsed={getElapsed} onToggleTimer={toggleTimer} user={user} /></OverlayModal>}
         {activeTab === 'responsibles' && <OverlayModal title="Equipe (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} tasks={tasks} user={user} /></OverlayModal>}
         {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={visibleClients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} now={now} /></OverlayModal>}
@@ -1446,6 +1459,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       {/* MOBILE BOTTOM NAV */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around pt-2.5 px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] bg-[#12121a]/95 backdrop-blur-md border-t border-[#27272a] z-[100] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
          <MobileNavBtn icon={<LayoutDashboard size={20} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
+         <MobileNavBtn icon={<Sun size={20} />} label="Hoje" active={activeTab === 'today' && !isClosingModal} onClick={() => setActiveTab('today')} alert={overdueCount > 0} />
          <MobileNavBtn icon={<Clock size={20} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
          <MobileNavBtn icon={<CalendarDays size={20} />} label="Agenda" active={activeTab === 'agenda' && !isClosingModal} onClick={() => setActiveTab('agenda')} />
          <MobileNavBtn icon={<Users size={20} />} label="Equipe" active={activeTab === 'responsibles' && !isClosingModal} onClick={() => setActiveTab('responsibles')} />
@@ -2249,6 +2263,157 @@ function buildGCalLink(task: any, clientName: string) {
     details += (details ? '\n\n' : '') + 'Checklist:\n' + checklist.map((c: any) => `${c.done ? '☑' : '☐'} ${c.text || ''}`).join('\n');
   }
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}&dates=${toGCalStamp(start)}/${toGCalStamp(end)}`;
+}
+
+function FocusRow({ t, clientName, onOpen, onToggleTimer, accent, meta, metaColor }: any) {
+  const pr = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE['Média'];
+  const closed = ['done', 'cancelled', 'formalize'].includes(t.status);
+  return (
+    <div onClick={() => onOpen(t)} className="group flex items-stretch gap-3 bg-[#12121a] border border-[#27272a] rounded-xl p-3 cursor-pointer hover:border-[#3f3f46] transition-colors">
+      <div className={`w-1 shrink-0 rounded-full ${accent}`} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          {clientName && <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 truncate max-w-[160px]">{clientName}</span>}
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${pr.dot}`} />
+        </div>
+        <div className={`text-[13px] font-bold leading-snug truncate ${closed ? 'text-neutral-500 line-through' : 'text-white'}`}>{t.title}</div>
+        {meta && <div className={`text-[10px] font-bold mt-1 ${metaColor || 'text-neutral-500'}`}>{meta}</div>}
+      </div>
+      {!closed && (
+        <button onClick={(e) => { e.stopPropagation(); onToggleTimer(t.id); }} className={`self-center shrink-0 p-2 rounded-lg border transition-colors ${t.timerRunning ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : 'text-neutral-400 bg-white/5 border-transparent hover:bg-white/10'}`} title={t.timerRunning ? 'Pausar' : 'Iniciar timer'}>
+          {t.timerRunning ? <Pause size={14} /> : <Play size={14} />}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FocusSection({ label, count, dot, children }: any) {
+  if (count === 0) return null;
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-2 ml-0.5">
+        <span className={`w-2 h-2 rounded-full ${dot} shadow-[0_0_8px_currentColor]`} />
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-300">{label}</h3>
+        <span className="text-[10px] font-bold text-neutral-500 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md">{count}</span>
+      </div>
+      <div className="flex flex-col gap-2">{children}</div>
+    </div>
+  );
+}
+
+function TodayView({ tasks, clients, user, now, getElapsed, onOpen, onToggleTimer }: any) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const nowD = new Date();
+  const todayMs = new Date(nowD).setHours(0, 0, 0, 0);
+  const todayStr = `${nowD.getFullYear()}-${pad(nowD.getMonth() + 1)}-${pad(nowD.getDate())}`;
+  const clientName = (id: string) => clients.find((c: any) => c.id === id)?.name || '';
+  const greet = nowD.getHours() < 12 ? 'Bom dia' : nowD.getHours() < 18 ? 'Boa tarde' : 'Boa noite';
+
+  const mine = tasks.filter((t: any) => t.responsibleId === user.id);
+  const isActive = (t: any) => !['done', 'cancelled', 'formalize'].includes(t.status);
+  const dueMs = (t: any) => { if (!t.dueDate) return null; const [y, m, d] = t.dueDate.split('-'); return new Date(+y, +m - 1, +d).setHours(0, 0, 0, 0); };
+  const schedDay = (t: any) => t.scheduledStart ? t.scheduledStart.slice(0, 10) : null;
+  const fmtBR = (s: string) => s ? s.split('-').reverse().join('/') : '';
+
+  const overdue = mine.filter((t: any) => isActive(t) && dueMs(t) !== null && (dueMs(t) as number) < todayMs);
+  const dueToday = mine.filter((t: any) => isActive(t) && dueMs(t) === todayMs);
+  const scheduledToday = mine.filter((t: any) => schedDay(t) === todayStr && isActive(t)).sort((a: any, b: any) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+  const inProgress = mine.filter((t: any) => t.status === 'inprogress');
+  const waiting = mine.filter((t: any) => t.status === 'waiting');
+  const doneToday = mine.filter((t: any) => (t.status === 'done' || t.status === 'formalize') && t.completedAt === todayStr);
+
+  // Semana (segunda a domingo)
+  const ws = new Date(); ws.setHours(0, 0, 0, 0); ws.setDate(ws.getDate() - ((ws.getDay() + 6) % 7));
+  const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(ws); d.setDate(ws.getDate() + i); return d; });
+  const dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+  const stats = [
+    { label: 'Atrasadas', value: overdue.length, color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' },
+    { label: 'Vence hoje', value: dueToday.length, color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' },
+    { label: 'Agendadas hoje', value: scheduledToday.length, color: 'text-teal-400', bg: 'bg-teal-500/10 border-teal-500/20' },
+    { label: 'Feitas hoje', value: doneToday.length, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  ];
+
+  const nothing = overdue.length + dueToday.length + scheduledToday.length + inProgress.length + waiting.length === 0;
+
+  return (
+    <div className="flex flex-col h-full fade-in gap-6">
+      {/* Saudação */}
+      <div className="shrink-0">
+        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">{greet}, {user.name.split(' ')[0]}</h2>
+        <p className="text-xs text-neutral-500 mt-1 capitalize">{new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(nowD)}</p>
+      </div>
+
+      {/* Resumo */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+        {stats.map(s => (
+          <div key={s.label} className={`rounded-2xl border p-4 flex flex-col gap-1 ${s.bg}`}>
+            <span className={`text-3xl font-black ${s.color}`}>{s.value}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Minha Semana */}
+      <div className="shrink-0">
+        <h3 className="text-[10px] font-bold text-neutral-500 mb-3 uppercase tracking-[0.2em] ml-0.5">Minha Semana</h3>
+        <div className="grid grid-cols-7 gap-2">
+          {week.map((d, i) => {
+            const dStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            const dayTasks = mine.filter((t: any) => schedDay(t) === dStr);
+            const load = dayTasks.reduce((acc: number, t: any) => acc + (t.durationMin > 0 ? t.durationMin : 60), 0);
+            const isToday = new Date(d).setHours(0, 0, 0, 0) === todayMs;
+            return (
+              <div key={i} className={`rounded-xl border p-2 flex flex-col items-center gap-1 ${isToday ? 'border-teal-500/40 bg-teal-500/[0.06]' : 'border-[#27272a] bg-[#12121a]'}`}>
+                <span className={`text-[9px] font-bold uppercase tracking-widest ${isToday ? 'text-teal-400' : 'text-neutral-500'}`}>{dayNames[i]}</span>
+                <span className={`text-sm font-bold ${isToday ? 'text-white' : 'text-neutral-300'}`}>{pad(d.getDate())}</span>
+                {dayTasks.length > 0 ? (
+                  <span className="text-[8px] font-bold text-neutral-500 text-center leading-tight">{dayTasks.length}× · {(load / 60).toFixed(1)}h</span>
+                ) : (
+                  <span className="text-[8px] text-neutral-700">—</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Listas de foco */}
+      <div className="flex-1 overflow-y-auto kp-scroll flex flex-col gap-6 pr-0.5 pb-2">
+        {nothing && (
+          <div className="text-center text-sm text-neutral-500 py-12 border border-dashed border-[#27272a] rounded-2xl flex flex-col items-center gap-3">
+            <CheckCircle2 size={32} className="text-emerald-500/60" />
+            Nada atrasado ou pendente para hoje. Bom trabalho!
+          </div>
+        )}
+
+        <FocusSection label="Atrasadas" count={overdue.length} dot="bg-red-500">
+          {overdue.map((t: any) => <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} accent="bg-red-500" meta={`Venceu em ${fmtBR(t.dueDate)}`} metaColor="text-red-400" />)}
+        </FocusSection>
+
+        <FocusSection label="Vence hoje" count={dueToday.length} dot="bg-orange-500">
+          {dueToday.map((t: any) => <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} accent="bg-orange-500" meta="Prazo é hoje" metaColor="text-orange-400" />)}
+        </FocusSection>
+
+        <FocusSection label="Agendadas para hoje" count={scheduledToday.length} dot="bg-teal-500">
+          {scheduledToday.map((t: any) => { const s = new Date(t.scheduledStart); const dur = t.durationMin > 0 ? t.durationMin : 60; return <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} accent="bg-teal-500" meta={`${pad(s.getHours())}:${pad(s.getMinutes())} · ${dur}min`} metaColor="text-teal-400" />; })}
+        </FocusSection>
+
+        <FocusSection label="Em andamento" count={inProgress.length} dot="bg-blue-500">
+          {inProgress.map((t: any) => <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} accent="bg-blue-500" meta={t.timerRunning ? `Rodando · ${formatTime(getElapsed(t))}` : (getElapsed(t) > 0 ? `Tempo: ${formatTime(getElapsed(t))}` : '')} metaColor="text-blue-400" />)}
+        </FocusSection>
+
+        <FocusSection label="Aguardando retorno" count={waiting.length} dot="bg-pink-500">
+          {waiting.map((t: any) => <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} accent="bg-pink-500" meta={t.waitingFor ? `Depende de: ${t.waitingFor}` : 'Aguardando'} metaColor="text-pink-400" />)}
+        </FocusSection>
+
+        <FocusSection label="Concluídas hoje" count={doneToday.length} dot="bg-emerald-500">
+          {doneToday.map((t: any) => <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} accent="bg-emerald-500" meta="Finalizada hoje" metaColor="text-emerald-400" />)}
+        </FocusSection>
+      </div>
+    </div>
+  );
 }
 
 function CalendarView({ tasks, setTasks, clients, handleRequestMove }: any) {
