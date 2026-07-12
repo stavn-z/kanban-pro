@@ -19,6 +19,11 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // --- Funções Auxiliares ---
 const nextId = () => Math.random().toString(36).substr(2, 9);
 
+// Registro de eventos do histórico da demanda
+function histEntry(type: string, from?: string, to?: string) {
+  return { at: new Date().toISOString(), type, from: from || '', to: to || '' };
+}
+
 function formatTime(totalSeconds: number) {
   const s = Math.floor(totalSeconds);
   const h = String(Math.floor(s / 3600)).padStart(2, "0");
@@ -105,6 +110,7 @@ function normalizeTask(t: any) {
     waitingFor: t.waitingFor || '',
     scheduledStart: t.scheduledStart || '',
     checklist: Array.isArray(t.checklist) ? t.checklist : [],
+    history: Array.isArray(t.history) ? t.history : [],
     timerElapsed: t.timerElapsed || 0,
     durationMin: t.durationMin || 0,
     createdAt: t.createdAt || t.dueDate || getBrasiliaDate(),
@@ -737,7 +743,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         timerStart: null,
         timerElapsed: 0,
         createdAt: getBrasiliaDate(),
-        completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? getBrasiliaDate() : ''
+        completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? getBrasiliaDate() : '',
+        history: [histEntry('created')]
       };
       setTasks((prev) => [...prev, newTask]);
     } else {
@@ -774,7 +781,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             checklist: (f.checklist || []).filter((c: any) => c.text.trim()),
             timerRunning, timerElapsed, timerStart,
             createdAt: t.createdAt || getBrasiliaDate(),
-            completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? (t.completedAt || getBrasiliaDate()) : t.completedAt
+            completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? (t.completedAt || getBrasiliaDate()) : t.completedAt,
+            history: (finalStatus !== t.status) ? [...(Array.isArray(t.history) ? t.history : []), histEntry('status', t.status, finalStatus)] : (Array.isArray(t.history) ? t.history : [])
           };
         })
       );
@@ -827,6 +835,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     setValidationError(null);
 
     if (donePrompt.isFromModal) {
+      const isAdd = modal.mode === 'add';
+      const prevHist = isAdd ? [histEntry('created')] : (Array.isArray(modal.task?.history) ? modal.task.history : []);
       const finalTask = {
          ...donePrompt.draftData,
          id: donePrompt.taskId,
@@ -836,7 +846,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
          timerRunning: false,
          timerStart: null,
          status: 'done',
-         completedAt: donePrompt.date
+         completedAt: donePrompt.date,
+         history: [...prevHist, histEntry('status', isAdd ? '' : (modal.task?.status || ''), 'done')]
       };
       
       if (modal.mode === 'add') setTasks(prev => [...prev, finalTask]);
@@ -859,6 +870,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       taskToMove.timerStart = null;
       taskToMove.status = 'done';
       taskToMove.completedAt = donePrompt.date;
+      taskToMove.history = [...(Array.isArray(taskToMove.history) ? taskToMove.history : []), histEntry('status', prev[fromIndex].status, 'done')];
 
       const originalToIndex = donePrompt.targetId ? prev.findIndex(t => t.id.toString() === donePrompt.targetId.toString()) : -1;
 
@@ -915,6 +927,9 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       taskToMove.timerRunning = timerRunning;
       taskToMove.timerElapsed = timerElapsed;
       taskToMove.timerStart = timerStart;
+      if (originalStatus !== newStatus) {
+        taskToMove.history = [...(Array.isArray(taskToMove.history) ? taskToMove.history : []), histEntry('status', originalStatus, newStatus)];
+      }
       
       const originalToIndex = targetId ? prev.findIndex(t => t.id.toString() === targetId.toString()) : -1;
 
@@ -1632,7 +1647,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       <button onClick={() => setQuickAdd(true)} className="fixed bottom-[88px] right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-[0_8px_30px_rgba(79,70,229,0.4)] transition-all active:scale-95" title="Captura rápida">
         <Plus size={24} />
       </button>
-      {quickAdd && <QuickAddModal clients={visibleClients} onClose={() => setQuickAdd(false)} onCreate={(data: any) => setTasks((prev: any) => [...prev, { id: nextId(), title: data.title, description: '', priority: data.priority, durationMin: 0, clientId: data.clientId, responsibleId: user.id, startDate: '', dueDate: '', status: 'backlog', waitingFor: '', checklist: [], timerRunning: false, timerStart: null, timerElapsed: 0, createdAt: getBrasiliaDate(), completedAt: '' }])} />}
+      {quickAdd && <QuickAddModal clients={visibleClients} onClose={() => setQuickAdd(false)} onCreate={(data: any) => setTasks((prev: any) => [...prev, { id: nextId(), title: data.title, description: '', priority: data.priority, durationMin: 0, clientId: data.clientId, responsibleId: user.id, startDate: '', dueDate: '', status: 'backlog', waitingFor: '', checklist: [], timerRunning: false, timerStart: null, timerElapsed: 0, createdAt: getBrasiliaDate(), completedAt: '', history: [histEntry('created')] }])} />}
       {searchOpen && <SearchModal tasks={visibleTasks} clients={clients} onOpen={openEditModal} onClose={() => setSearchOpen(false)} />}
 
       {/* Modais de Popups Principais */}
@@ -3246,6 +3261,35 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
           </div>
           
           <div className="mt-2"><div className="flex items-center justify-between mb-3"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 ml-1">Checklist de Passos</label><button onClick={addChecklistRow} className="text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors p-1 flex items-center gap-1"><Plus size={12}/> Adicionar Passo</button></div><div className="flex flex-col gap-3 pb-safe">{(modal.form.checklist || []).map((c: any) => (<div key={c.id} className="flex items-center gap-3"><button onClick={() => { setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map((ci: any) => ci.id === c.id ? { ...ci, done: !ci.done } : ci) } })); }} className={`p-2.5 border rounded-xl transition-all shrink-0 ${c.done ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-[#12121a] border-[#27272a] text-neutral-700 hover:text-neutral-500 hover:bg-white/5'}`}><Check size={16}/></button><input value={c.text || ''} onChange={(e) => { setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.map((ci: any) => ci.id === c.id ? { ...ci, text: e.target.value } : ci) } })); }} className="flex-1 bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all shadow-sm" placeholder="O que precisa ser feito?" /><button onClick={() => setModal((m: any) => ({ ...m, form: { ...m.form, checklist: m.form.checklist.filter((ci: any) => ci.id !== c.id) } }))} className="p-2.5 text-neutral-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"><X size={18} /></button></div>))}</div></div>
+          {modal.mode === 'edit' && Array.isArray(modal.task?.history) && modal.task.history.length > 0 && (
+            <div className="mt-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-3 block ml-1">Histórico</label>
+              <div className="flex flex-col">
+                {modal.task.history.map((h: any, i: number) => {
+                  const d = new Date(h.at);
+                  const valid = !isNaN(d.getTime());
+                  const p2 = (n: number) => String(n).padStart(2, '0');
+                  const dateStr = valid ? `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()} · ${p2(d.getHours())}:${p2(d.getMinutes())}` : '';
+                  let label = h.type;
+                  if (h.type === 'created') label = 'Demanda criada';
+                  else if (h.type === 'status') { const to = COLUMNS.find(c => c.id === h.to); label = `Movida para ${to ? to.name : h.to}`; }
+                  const isLast = i === modal.task.history.length - 1;
+                  return (
+                    <div key={i} className="flex gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${isLast ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 'bg-[#3f3f46]'}`}></span>
+                        {!isLast && <span className="w-px flex-1 bg-[#27272a] my-1"></span>}
+                      </div>
+                      <div className="pb-4 min-w-0">
+                        <div className="text-[12px] text-neutral-200 font-medium leading-snug">{label}</div>
+                        {dateStr && <div className="text-[10px] text-neutral-500 font-mono mt-0.5">{dateStr}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <div className="px-6 sm:px-8 py-5 border-t border-[#27272a] flex flex-col sm:flex-row items-center justify-end gap-3 bg-[#0f0f13] shrink-0 pb-[max(env(safe-area-inset-bottom),1.25rem)] md:pb-5"><button onClick={closeModal} className="w-full sm:w-auto text-xs font-bold uppercase tracking-widest px-6 py-4 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors">Cancelar</button><button onClick={saveModal} className="w-full sm:w-auto text-xs font-black uppercase tracking-[0.15em] px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)]">Salvar Demanda</button></div>
       </div>
