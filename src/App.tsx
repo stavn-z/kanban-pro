@@ -655,7 +655,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const doneCount = visibleTasks.filter((t) => t.status === "done" || t.status === "formalize").length;
   const overallProgress = activeTasksCount ? Math.round((doneCount / activeTasksCount) * 100) : 0;
   
-  const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done', 'formalize'].includes(t.status));
+  const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done'].includes(t.status));
 
   const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, startDate: "", dueDate: "", status: "", waitingFor: "", checklist: [] };
 
@@ -973,7 +973,33 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   // --- Drag & Drop universal (mouse + touch) via Pointer Events ---
   const [dragState, setDragState] = useState<{ id: string, title: string, x: number, y: number } | null>(null);
   const pointerStartRef = useRef<{ x: number, y: number, id: string, title: string } | null>(null);
+  const boardScrollRef = useRef<HTMLDivElement | null>(null);
+  const autoScrollRef = useRef<{ dir: number, running: boolean }>({ dir: 0, running: false });
   const DRAG_THRESHOLD = 8;
+
+  // Auto-rolagem horizontal do quadro ao arrastar um card até a beirada (essencial no mobile)
+  function stepAutoScroll() {
+    const el = boardScrollRef.current;
+    const a = autoScrollRef.current;
+    if (!el || a.dir === 0 || !pointerStartRef.current) { a.running = false; return; }
+    el.scrollLeft += a.dir * 16;
+    requestAnimationFrame(stepAutoScroll);
+  }
+
+  function updateAutoScroll(clientX: number) {
+    const el = boardScrollRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const edge = 72;
+    let dir = 0;
+    if (clientX < rect.left + edge) dir = -1;
+    else if (clientX > rect.right - edge) dir = 1;
+    autoScrollRef.current.dir = dir;
+    if (dir !== 0 && !autoScrollRef.current.running) {
+      autoScrollRef.current.running = true;
+      requestAnimationFrame(stepAutoScroll);
+    }
+  }
 
   function findDropTarget(x: number, y: number) {
     const el = document.elementFromPoint(x, y);
@@ -992,7 +1018,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     e.preventDefault();
     e.stopPropagation();
     pointerStartRef.current = { x: e.clientX, y: e.clientY, id: taskId, title };
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   }
 
   function handleBoardPointerMove(e: React.PointerEvent) {
@@ -1007,6 +1033,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       setDragState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : prev);
       const target = findDropTarget(e.clientX, e.clientY);
       setDragOverId(target.taskId && target.taskId !== dragState.id ? target.taskId : null);
+      updateAutoScroll(e.clientX);
     }
   }
 
@@ -1019,6 +1046,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       }
     }
     pointerStartRef.current = null;
+    autoScrollRef.current.dir = 0;
+    autoScrollRef.current.running = false;
     setDragState(null);
     setDragOverId(null);
   }
@@ -1258,7 +1287,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             onPointerUp={handleBoardPointerUp}
             onPointerCancel={handleBoardPointerUp}
           >
-            <div className="absolute inset-0 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll">
+            <div ref={boardScrollRef} className="absolute inset-0 overflow-x-auto overflow-y-hidden px-4 md:px-8 pb-4 md:pb-8 kp-scroll">
               <div className="flex gap-4 sm:gap-5 h-full min-w-max items-stretch">
                 {COLUMNS.map((col) => {
                   const colTasks = filteredTasks.filter((t) => t.status === col.id);
@@ -1348,11 +1377,13 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                                           <button onClick={(e) => { e.stopPropagation(); moveTaskVertical(t.id, 'down'); }} className="p-1 bg-white/5 rounded text-neutral-400 active:bg-white/10 active:text-white"><ChevronDown size={12}/></button>
                                        </div>
                                     )}
-                                    <GripVertical
-                                      size={18}
+                                    <div
                                       onPointerDown={(e) => handleHandlePointerDown(e, t.id, t.title, isEditable)}
-                                      className="text-neutral-500 shrink-0 opacity-100 transition-opacity block cursor-grab active:cursor-grabbing p-1 -m-1 touch-none"
-                                    />
+                                      className="shrink-0 flex items-center justify-center text-neutral-500 cursor-grab active:cursor-grabbing touch-none rounded-lg p-2.5 -m-2 md:p-1 md:-m-1 active:bg-white/10 active:text-white"
+                                      title="Arrastar"
+                                    >
+                                      <GripVertical size={18} className="pointer-events-none" />
+                                    </div>
                                   </div>
                                 ) : (
                                   <Lock size={12} className="text-neutral-600 shrink-0 block" />
@@ -1854,7 +1885,7 @@ function ClientModal({ modal, setModal, setClients, user }: any) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[70] fade-in" onClick={() => setModal(null)}>
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[70] fade-in" onClick={() => setModal(null)}>
       <div className="w-full max-w-md rounded-3xl sm:rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[80dvh] sm:max-h-[85dvh] shadow-2xl overflow-hidden animate-modal-pop" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13] shrink-0">
           <h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
@@ -1926,7 +1957,7 @@ function ClientDetailModal({ client, tasks, getElapsed, user, onClose, onEdit, o
   const sorted = [...cTasks].sort((a: any, b: any) => COLUMNS.findIndex(c => c.id === a.status) - COLUMNS.findIndex(c => c.id === b.status));
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[75] fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[75] fade-in" onClick={onClose}>
       <div className="w-full max-w-2xl rounded-3xl sm:rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[80dvh] sm:max-h-[85dvh] shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
         <div className="px-5 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13] shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -1951,7 +1982,7 @@ function ClientDetailModal({ client, tasks, getElapsed, user, onClose, onEdit, o
             {teto > 0 ? (
               <>
                 <div className="flex items-end justify-between mb-3">
-                  <span className="text-3xl font-black text-white">{worked.toFixed(1)}<span className="text-lg text-neutral-500 font-bold">h</span></span>
+                  <span className="text-3xl font-black text-white">{worked.toFixed(1)}<span className="text-lg text-neutral-500 font-bold ml-1">h</span></span>
                   <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">de {teto}h contratadas</span>
                 </div>
                 <div className="h-2.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
@@ -1965,7 +1996,7 @@ function ClientDetailModal({ client, tasks, getElapsed, user, onClose, onEdit, o
               </>
             ) : (
               <div className="flex items-end justify-between">
-                <span className="text-3xl font-black text-white">{worked.toFixed(1)}<span className="text-lg text-neutral-500 font-bold">h</span></span>
+                <span className="text-3xl font-black text-white">{worked.toFixed(1)}<span className="text-lg text-neutral-500 font-bold ml-1">h</span></span>
                 <span className="text-xs font-bold uppercase tracking-widest text-neutral-600">sem teto definido</span>
               </div>
             )}
@@ -2873,7 +2904,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }: an
     return tasks.reduce((acc: any, task: any) => {
       const cId = task.clientId || 'no_client';
       if (!acc[cId]) acc[cId] = { done: [], inProgress: [] };
-      if (task.status === 'done' || task.status === 'formalize') {
+      if (task.status === 'done') {
         acc[cId].done.push(task);
       } else if (['inprogress', 'paused', 'waiting', 'review'].includes(task.status)) {
         acc[cId].inProgress.push(task);
@@ -3079,12 +3110,14 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }: an
                     </button>
                   </div>
 
-                  <button 
-                    onClick={() => onFormalize(clientId)}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-transparent border border-[#27272a] text-neutral-400 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-500/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
-                  >
-                    <CheckCircle2 size={16} /> Formalizar
-                  </button>
+                  {clientTasks.done.length > 0 && (
+                    <button 
+                      onClick={() => onFormalize(clientId)}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-3 bg-transparent border border-[#27272a] text-neutral-400 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-500/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                    >
+                      <CheckCircle2 size={16} /> Formalizar ({clientTasks.done.length})
+                    </button>
+                  )}
                 </div>
               </div>
             );
