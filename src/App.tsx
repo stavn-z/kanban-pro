@@ -578,6 +578,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
 
   const [modal, setModal] = useState<any>(null); 
   const [profileModal, setProfileModal] = useState(false);
+  const [quickAdd, setQuickAdd] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<any>(null);
   
@@ -1576,6 +1577,12 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         </div>
       )}
 
+      {/* Botão flutuante de Captura Rápida */}
+      <button onClick={() => setQuickAdd(true)} className="fixed bottom-[88px] right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-[0_8px_30px_rgba(79,70,229,0.4)] transition-all active:scale-95" title="Captura rápida">
+        <Plus size={24} />
+      </button>
+      {quickAdd && <QuickAddModal clients={visibleClients} onClose={() => setQuickAdd(false)} onCreate={(data: any) => setTasks((prev: any) => [...prev, { id: nextId(), title: data.title, description: '', priority: data.priority, durationMin: 0, clientId: data.clientId, responsibleId: user.id, startDate: '', dueDate: '', status: 'backlog', waitingFor: '', checklist: [], timerRunning: false, timerStart: null, timerElapsed: 0, createdAt: getBrasiliaDate(), completedAt: '' }])} />}
+
       {/* Modais de Popups Principais */}
       {closureModal && <ClosureModal tasks={tasksForClosure} clients={clients} responsibles={responsibles} onClose={() => setClosureModal(false)} onFormalize={(clientId: string | null) => { if (clientId) { setTasks((prev: any) => prev.map((t: any) => (t.status === 'done' && t.clientId === clientId) ? { ...t, status: 'formalize' } : t)); } else { setTasks((prev: any) => prev.map((t: any) => t.status === 'done' ? { ...t, status: 'formalize' } : t)); setClosureModal(false); } }} />}
       {modal && <TaskModal modal={modal} setModal={setModal} clients={visibleClients} responsibles={responsibles} closeModal={closeModal} saveModal={saveModal} validationError={validationError} setValidationError={setValidationError} user={user} />}
@@ -2431,6 +2438,66 @@ function FocusSection({ label, count, dot, children }: any) {
         <span className="text-[10px] font-bold text-neutral-500 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md">{count}</span>
       </div>
       <div className="flex flex-col gap-2">{children}</div>
+    </div>
+  );
+}
+
+function QuickAddModal({ clients, onCreate, onClose }: any) {
+  const [title, setTitle] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [priority, setPriority] = useState('Média');
+  const [error, setError] = useState('');
+
+  const save = () => {
+    if (!title.trim()) return setError('Informe um título.');
+    if (!clientId) return setError('Selecione um cliente.');
+    onCreate({ title: title.trim(), clientId, priority });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[95] fade-in" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl sm:rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20"><Plus size={18} className="text-indigo-400" /></div>
+            <h3 className="font-bold text-lg text-white tracking-tight">Captura Rápida</h3>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
+        </div>
+        <div className="p-6 flex flex-col gap-5 bg-[#09090b]">
+          {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3 py-2.5 rounded-lg flex items-center gap-2"><AlertTriangle size={14} className="shrink-0" /> {error}</div>}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Título *</label>
+            <input autoFocus value={title} onChange={e => { setTitle(e.target.value); setError(''); }} onKeyDown={e => e.key === 'Enter' && save()} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-colors" placeholder="O que precisa ser feito?" />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Cliente *</label>
+            <div className="relative">
+              <select value={clientId} onChange={e => { setClientId(e.target.value); setError(''); }} className="appearance-none w-full bg-[#12121a] border border-[#27272a] rounded-xl pl-4 pr-10 py-3.5 text-sm text-white outline-none focus:border-indigo-500 cursor-pointer transition-colors">
+                <option value="" className="bg-[#1c1d26]">Selecione o cliente...</option>
+                {clients.map((c: any) => <option key={c.id} value={c.id} className="bg-[#1c1d26]">{c.name}</option>)}
+              </select>
+              <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-600 pointer-events-none" />
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Prioridade</label>
+            <div className="flex gap-2">
+              {['Baixa', 'Média', 'Alta'].map(p => {
+                const st = PRIORITY_STYLE[p];
+                const on = priority === p;
+                return <button key={p} onClick={() => setPriority(p)} className={`flex-1 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest border transition-colors ${on ? `${st.bg} ${st.text} ${st.border}` : 'bg-[#12121a] text-neutral-500 border-[#27272a] hover:text-neutral-300'}`}>{p}</button>;
+              })}
+            </div>
+          </div>
+          <p className="text-[10px] text-neutral-600 ml-1 leading-relaxed">A demanda entra no Backlog com você como responsável. Detalhe (descrição, prazo, checklist) depois.</p>
+        </div>
+        <div className="px-6 py-5 border-t border-[#27272a] bg-[#0f0f13] flex items-center justify-end gap-3">
+          <button onClick={onClose} className="text-xs font-bold uppercase tracking-widest px-5 py-3.5 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
+          <button onClick={save} className="text-xs font-black uppercase tracking-widest px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)]">Adicionar</button>
+        </div>
+      </div>
     </div>
   );
 }
