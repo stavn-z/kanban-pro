@@ -18,6 +18,11 @@ jobs:
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
+          # Garante que a versão 17 seja a usada (o runner já vem com uma versão antiga instalada)
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Conferir versão do pg_dump
+        run: pg_dump --version
 
       - name: Gerar e criptografar o backup
         env:
