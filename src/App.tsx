@@ -111,6 +111,7 @@ function normalizeTask(t: any) {
     scheduledStart: t.scheduledStart || '',
     checklist: Array.isArray(t.checklist) ? t.checklist : [],
     history: Array.isArray(t.history) ? t.history : [],
+    recurringWeekly: !!t.recurringWeekly,
     timerElapsed: t.timerElapsed || 0,
     durationMin: t.durationMin || 0,
     createdAt: t.createdAt || t.dueDate || getBrasiliaDate(),
@@ -492,6 +493,49 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Alerta "hora de começar": avisa ~10 min antes de uma demanda agendada (enquanto o app está aberto)
+  useEffect(() => {
+    const occurrenceMs = (t: any) => {
+      const s = new Date(t.scheduledStart);
+      if (!t.recurringWeekly) return s.getTime();
+      // Próxima ocorrência semanal (mesmo dia da semana e horário)
+      const now = new Date();
+      const occ = new Date(now);
+      occ.setHours(s.getHours(), s.getMinutes(), 0, 0);
+      const dayDiff = (s.getDay() - now.getDay() + 7) % 7;
+      occ.setDate(now.getDate() + dayDiff);
+      let ms = occ.getTime();
+      if (ms - now.getTime() < -60000) ms += 7 * 24 * 3600 * 1000;
+      return ms;
+    };
+    const check = () => {
+      const nowMs = Date.now();
+      const soon = tasks.find((t: any) => {
+        if (t.responsibleId !== user.id) return false;
+        if (!t.scheduledStart) return false;
+        if (['done', 'cancelled', 'formalize'].includes(t.status)) return false;
+        const occMs = occurrenceMs(t);
+        if (dueAlertedRef.current.has(t.id + '|' + occMs)) return false;
+        const diff = occMs - nowMs;
+        return diff >= -60000 && diff <= 10 * 60000;
+      });
+      if (soon) {
+        const occMs = occurrenceMs(soon);
+        dueAlertedRef.current.add(soon.id + '|' + occMs);
+        setDueAlert(soon);
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const s = new Date(occMs);
+            new Notification('Hora de começar — Lumina', { body: `${soon.title} às ${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}` });
+          }
+        } catch {}
+      }
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => clearInterval(id);
+  }, [tasks, user]);
+
   // Busca dados da Nuvem (o RLS já filtra o que cada usuário pode ver)
   useEffect(() => {
     async function fetchCloudData() {
@@ -642,6 +686,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   const [profileModal, setProfileModal] = useState(false);
   const [quickAdd, setQuickAdd] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [dueAlert, setDueAlert] = useState<any>(null);
+  const dueAlertedRef = useRef<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<any>(null);
   
@@ -780,6 +826,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         timerElapsed: 0,
         createdAt: getBrasiliaDate(),
         completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? getBrasiliaDate() : '',
+        recurringWeekly: false,
         history: [histEntry('created')]
       };
       setTasks((prev) => [...prev, newTask]);
@@ -815,6 +862,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             status: finalStatus,
             waitingFor: f.waitingFor || '',
             checklist: (f.checklist || []).filter((c: any) => c.text.trim()),
+            recurringWeekly: !!f.recurringWeekly,
             timerRunning, timerElapsed, timerStart,
             createdAt: t.createdAt || getBrasiliaDate(),
             completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? (t.completedAt || getBrasiliaDate()) : t.completedAt,
@@ -1686,6 +1734,30 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Alerta "hora de começar" */}
+      {dueAlert && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[96] w-[92%] max-w-md rounded-2xl bg-[#12121a] border border-teal-500/30 shadow-2xl overflow-hidden animate-modal-pop">
+          <div className="p-4 flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 shrink-0"><Clock size={18} className="text-teal-400" /></div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-teal-400 mb-0.5">Hora de começar</div>
+              <div className="text-sm font-bold text-white leading-snug font-display">{dueAlert.title}</div>
+              <div className="text-[11px] text-neutral-500 mt-0.5 truncate">
+                {(clients.find((c: any) => c.id === dueAlert.clientId)?.name || '')}{clients.find((c: any) => c.id === dueAlert.clientId)?.name ? ' · ' : ''}{(() => { const s = new Date(dueAlert.scheduledStart); return `${String(s.getHours()).padStart(2, '0')}:${String(s.getMinutes()).padStart(2, '0')}`; })()}
+              </div>
+            </div>
+            <button onClick={() => setDueAlert(null)} className="p-1.5 rounded-lg text-neutral-500 hover:text-white transition-colors shrink-0"><X size={16} /></button>
+          </div>
+          <div className="px-4 pb-4 flex items-center gap-2">
+            <button onClick={() => { handleRequestMove(dueAlert.id, null, 'inprogress'); if (!dueAlert.timerRunning) toggleTimer(dueAlert.id); setDueAlert(null); }} className="flex-1 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"><Play size={14} /> Iniciar agora</button>
+            <button onClick={() => { openEditModal(dueAlert); setDueAlert(null); }} className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors">Abrir</button>
+          </div>
+          {typeof Notification !== 'undefined' && Notification.permission === 'default' && (
+            <button onClick={() => { try { Notification.requestPermission(); } catch {} }} className="w-full py-2.5 bg-white/[0.03] border-t border-white/5 text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-teal-400 transition-colors">🔔 Ativar avisos no navegador</button>
+          )}
         </div>
       )}
 
@@ -2850,8 +2922,14 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove }: any) {
   const tasksOnDay = (day: Date) => tasks.filter((t: any) => {
     if (!t.scheduledStart) return false;
     const s = new Date(t.scheduledStart);
-    return s.getFullYear() === day.getFullYear() && s.getMonth() === day.getMonth() && s.getDate() === day.getDate();
+    const sameDay = s.getFullYear() === day.getFullYear() && s.getMonth() === day.getMonth() && s.getDate() === day.getDate();
+    if (sameDay) return true;
+    // Recorrente: aparece no mesmo dia da semana, em todas as semanas
+    if (t.recurringWeekly && isActionable(t) && s.getDay() === day.getDay()) return true;
+    return false;
   });
+
+  const toggleRecurring = (taskId: string) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, recurringWeekly: !t.recurringWeekly } : t));
 
   const setSchedule = (taskId: string, value: string) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, scheduledStart: value } : t));
   const setDuration = (taskId: string, dur: number) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, durationMin: dur } : t));
@@ -3033,11 +3111,12 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove }: any) {
                     return (
                       <div key={t.id} className={`absolute left-1 right-1 rounded-lg bg-teal-500/15 border border-teal-500/40 overflow-hidden group ${isDragging ? 'opacity-40' : ''}`} style={{ top, height: bh }}>
                         <div onPointerDown={(e) => beginDrag(e, t, 'move')} style={{ touchAction: 'none' }} className="h-full p-1.5 cursor-grab active:cursor-grabbing select-none">
-                          <div className="text-[9px] font-mono font-bold text-teal-300 leading-none mb-1">{pad(s.getHours())}:{pad(s.getMinutes())} · {dur}min</div>
+                          <div className="text-[9px] font-mono font-bold text-teal-300 leading-none mb-1 flex items-center gap-1">{t.recurringWeekly && <RotateCcw size={8} />}{pad(s.getHours())}:{pad(s.getMinutes())} · {dur}min</div>
                           <div className="text-[10px] font-bold text-white leading-tight line-clamp-2">{t.title}</div>
                           {cn && bh > ROW_H && <div className="text-[8px] text-teal-300/70 uppercase tracking-widest font-bold mt-1 truncate">{cn}</div>}
                         </div>
                         <div className="absolute top-1 right-1 flex gap-1">
+                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleRecurring(t.id)} className={`p-1 rounded hover:bg-black/60 ${t.recurringWeekly ? 'bg-teal-500/50 text-white' : 'bg-black/40 text-neutral-400 hover:text-teal-300'}`} title={t.recurringWeekly ? 'Repetindo toda semana (clique p/ parar)' : 'Repetir toda semana'}><RotateCcw size={11} /></button>
                           <a href={buildGCalLink(t, cn)} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} className="p-1 rounded bg-black/40 text-teal-300 hover:bg-black/60" title="Abrir no Google Agenda"><ExternalLink size={11} /></a>
                           <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setSchedule(t.id, '')} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-red-400 hover:bg-black/60" title="Desagendar"><X size={11} /></button>
                         </div>
