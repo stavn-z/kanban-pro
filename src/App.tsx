@@ -1133,6 +1133,14 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   return (
     <div className="fixed inset-0 w-full bg-[#09090b] text-neutral-100 flex flex-col md:flex-row overflow-hidden font-sans" onClick={() => { setActiveTooltipCol(null); setShowProfileMenu(false); }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+        :root, body, button, input, select, textarea, [class] {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif !important; letter-spacing: -0.01em; }
+        .font-mono, .font-mono * { font-family: ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace !important; }
+
         .kp-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; }
         .kp-scroll::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
@@ -1232,7 +1240,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
           {/* Desktop Title */}
           <div className="hidden md:flex flex-col">
             <div className="flex items-center gap-3">
-              <h1 className="font-bold text-2xl text-white tracking-tight">Kanban & Analytics</h1>
+              <h1 className="font-display font-bold text-2xl text-white tracking-tight">Kanban & Analytics</h1>
               {isCloudSynced && (
                 <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-md flex items-center gap-1">
                   <Cloud size={10} /> Sincronizado
@@ -1248,7 +1256,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         </div>
 
         {/* MODAIS Overlay */}
-        {activeTab === 'today' && <OverlayModal title="Meu Dia" icon={<Sun size={20} className="text-amber-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TodayView tasks={tasks} clients={clients} user={user} getElapsed={getElapsed} onOpen={openEditModal} onToggleTimer={toggleTimer} onComplete={(t) => handleRequestMove(t.id, null, 'done')} /></OverlayModal>}
+        {activeTab === 'today' && <OverlayModal title="Meu Dia" icon={<Sun size={20} className="text-amber-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TodayView tasks={tasks} clients={clients} user={user} getElapsed={getElapsed} onOpen={openEditModal} onToggleTimer={toggleTimer} onComplete={(t) => handleRequestMove(t.id, null, 'done')} onOpenAgenda={() => setActiveTab('agenda')} /></OverlayModal>}
         {activeTab === 'timer' && <OverlayModal title="Cronómetro" icon={<Clock size={20} className="text-amber-500"/>} isClosing={isClosingModal} onClose={handleCloseTab}><TimerPanelContent tasks={filteredTasks} getElapsed={getElapsed} onToggleTimer={toggleTimer} user={user} /></OverlayModal>}
         {activeTab === 'responsibles' && <OverlayModal title="Equipe (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} tasks={tasks} user={user} /></OverlayModal>}
         {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={visibleClients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} /></OverlayModal>}
@@ -1464,7 +1472,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                               </div>
 
                               <div className="mb-3">
-                                <h3 className={`text-[13px] font-bold leading-relaxed mb-1.5 ${isDoneOrCancelled ? 'text-neutral-500 line-through' : 'text-white'}`}>{t.title}</h3>
+                                <h3 className={`font-display text-[13px] font-bold leading-relaxed mb-1.5 ${isDoneOrCancelled ? 'text-neutral-500 line-through' : 'text-white'}`}>{t.title}</h3>
                                 {t.description && <div className="text-[11px] text-neutral-400 line-clamp-2 leading-relaxed">{t.description}</div>}
                               </div>
 
@@ -1599,7 +1607,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
           <div className="w-full max-w-sm rounded-[32px] bg-[#12121a] border border-[#27272a] shadow-2xl relative overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center gap-3 text-emerald-500">
               <CheckCircle2 size={24} />
-              <h3 className="font-bold text-xl text-white tracking-tight">Finalizar Demanda</h3>
+              <h3 className="font-display font-bold text-xl text-white tracking-tight">Finalizar Demanda</h3>
             </div>
             <div className="p-5 sm:p-8 flex flex-col gap-5">
               {validationError && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-4 py-3 rounded-xl flex items-center gap-2 animate-pulse"><AlertTriangle size={14} className="shrink-0" /> {Array.isArray(validationError) ? validationError.join(", ") : String(validationError)}</div>}
@@ -1626,7 +1634,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
           <div className="w-full max-w-md rounded-[32px] bg-[#12121a] border border-red-500/30 flex flex-col shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
             <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center gap-3">
               <div className="p-3 bg-red-500/10 rounded-2xl shadow-inner text-red-500"><AlertTriangle size={24} /></div>
-              <h3 className="font-bold text-xl text-white tracking-tight">Alerta de Limite</h3>
+              <h3 className="font-display font-bold text-xl text-white tracking-tight">Alerta de Limite</h3>
             </div>
             <div className="p-5 sm:p-8 flex flex-col gap-4">
               <p className="text-sm text-neutral-400">Os seguintes clientes esgotaram as horas mensais ou estão próximos do fim:</p>
@@ -1744,7 +1752,7 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }: any) {
         <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] bg-[#0f0f13] flex items-center justify-between">
           <div className="flex items-center gap-3">
              <UserCog size={20} className="text-indigo-400" />
-             <h3 className="font-bold text-xl text-white tracking-tight">Meu Perfil</h3>
+             <h3 className="font-display font-bold text-xl text-white tracking-tight">Meu Perfil</h3>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-neutral-500 hover:text-white transition-colors"><X size={20}/></button>
         </div>
@@ -1814,7 +1822,7 @@ function OverlayModal({ title, icon, onClose, children, fullWidth, isClosing }: 
         <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13]">
            <div className="flex items-center gap-4">
              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10 hidden sm:block">{icon}</div>
-             <h2 className="text-xl font-bold text-white tracking-tight">{title}</h2>
+             <h2 className="font-display text-xl font-bold text-white tracking-tight">{title}</h2>
            </div>
            <button onClick={onClose} className="p-2.5 rounded-xl text-neutral-500 hover:bg-white/5 hover:text-white transition-colors shrink-0"><X size={20}/></button>
         </div>
@@ -1973,7 +1981,7 @@ function ClientModal({ modal, setModal, setClients, user }: any) {
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[70] fade-in" onClick={() => setModal(null)}>
       <div className="w-full max-w-md rounded-3xl sm:rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[80dvh] sm:max-h-[85dvh] shadow-2xl overflow-hidden animate-modal-pop" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13] shrink-0">
-          <h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
+          <h3 className="font-display font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Novo Cliente" : "Editar Cliente"}</h3>
           <button onClick={() => setModal(null)} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button>
         </div>
         
@@ -2047,7 +2055,7 @@ function ClientDetailModal({ client, tasks, getElapsed, user, onClose, onEdit, o
         <div className="px-5 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13] shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2.5 bg-purple-500/10 rounded-xl border border-purple-500/20 shrink-0"><Building2 size={22} className="text-purple-400" /></div>
-            <h3 className="font-bold text-xl text-white tracking-tight truncate">{client.name}</h3>
+            <h3 className="font-display font-bold text-xl text-white tracking-tight truncate">{client.name}</h3>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors shrink-0"><X size={20} /></button>
         </div>
@@ -2518,7 +2526,7 @@ function buildGCalLink(task: any, clientName: string) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(details)}&dates=${toGCalStamp(start)}/${toGCalStamp(end)}`;
 }
 
-function FocusRow({ t, clientName, onOpen, onToggleTimer, onComplete, accent, meta, metaColor }: any) {
+function FocusRow({ t, clientName, onOpen, onToggleTimer, onComplete, onOpenAgenda, accent, meta, metaColor }: any) {
   const pr = PRIORITY_STYLE[t.priority] || PRIORITY_STYLE['Média'];
   const closed = ['done', 'cancelled', 'formalize'].includes(t.status);
   return (
@@ -2534,6 +2542,11 @@ function FocusRow({ t, clientName, onOpen, onToggleTimer, onComplete, accent, me
       </div>
       {!closed && (
         <div className="self-center shrink-0 flex items-center gap-1.5">
+          {onOpenAgenda && (
+            <button onClick={(e) => { e.stopPropagation(); onOpenAgenda(t); }} className="p-2 rounded-lg border border-transparent bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 transition-colors" title={t.scheduledStart ? 'Ver na Agenda' : 'Agendar um horário'}>
+              <CalendarDays size={14} />
+            </button>
+          )}
           <button onClick={(e) => { e.stopPropagation(); onToggleTimer(t.id); }} className={`p-2 rounded-lg border transition-colors ${t.timerRunning ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' : 'text-neutral-400 bg-white/5 border-transparent hover:bg-white/10'}`} title={t.timerRunning ? 'Pausar' : 'Iniciar timer'}>
             {t.timerRunning ? <Pause size={14} /> : <Play size={14} />}
           </button>
@@ -2683,7 +2696,7 @@ function QuickAddModal({ clients, onCreate, onClose }: any) {
   );
 }
 
-function TodayView({ tasks, clients, user, getElapsed, onOpen, onToggleTimer, onComplete }: any) {
+function TodayView({ tasks, clients, user, getElapsed, onOpen, onToggleTimer, onComplete, onOpenAgenda }: any) {
   const pad = (n: number) => String(n).padStart(2, '0');
   const nowD = new Date();
   const todayMs = new Date(nowD).setHours(0, 0, 0, 0);
@@ -2732,7 +2745,7 @@ function TodayView({ tasks, clients, user, getElapsed, onOpen, onToggleTimer, on
     <div className="flex flex-col h-full fade-in gap-6">
       {/* Saudação */}
       <div className="shrink-0">
-        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">{greet}, {user.name.split(' ')[0]}</h2>
+        <h2 className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">{greet}, {user.name.split(' ')[0]}</h2>
         <p className="text-xs text-neutral-500 mt-1 capitalize">{new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(nowD)}</p>
       </div>
 
@@ -2792,7 +2805,7 @@ function TodayView({ tasks, clients, user, getElapsed, onOpen, onToggleTimer, on
             let meta;
             if (t.scheduledStart) { const s = new Date(t.scheduledStart); const dur = t.durationMin > 0 ? t.durationMin : 60; meta = `${pad(s.getHours())}:${pad(s.getMinutes())} · ${dur}min`; }
             else meta = 'Início previsto para hoje';
-            return <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} onComplete={onComplete} accent="bg-teal-500" meta={meta} metaColor="text-teal-400" />;
+            return <FocusRow key={t.id} t={t} clientName={clientName(t.clientId)} onOpen={onOpen} onToggleTimer={onToggleTimer} onComplete={onComplete} onOpenAgenda={onOpenAgenda} accent="bg-teal-500" meta={meta} metaColor="text-teal-400" />;
           })}
         </FocusSection>
 
@@ -3165,7 +3178,7 @@ function ClosureModal({ tasks, clients, responsibles, onClose, onFormalize }: an
           <div className="flex items-center gap-4">
             <div className="p-2.5 bg-indigo-500/10 rounded-xl hidden sm:block text-indigo-400 border border-indigo-500/20"><Mail size={24} /></div>
             <div>
-              <h3 className="font-bold text-xl text-white tracking-tight">Fechamento Semanal</h3>
+              <h3 className="font-display font-bold text-xl text-white tracking-tight">Fechamento Semanal</h3>
               <p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest font-bold">Dispare os e-mails e copie os relatórios para o Notion.</p>
             </div>
           </div>
@@ -3309,7 +3322,7 @@ function TaskModal({ modal, setModal, clients, responsibles, closeModal, saveMod
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[85] fade-in" onClick={closeModal}>
       <div className="w-full max-w-xl rounded-[32px] bg-[#12121a] border border-[#27272a] flex flex-col max-h-[80dvh] sm:max-h-[85dvh] shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
-        <div className="px-6 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13] shrink-0"><h3 className="font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Nova Demanda" : "Editar Demanda"}</h3><button onClick={closeModal} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button></div>
+        <div className="px-6 sm:px-8 py-5 border-b border-[#27272a] flex items-center justify-between bg-[#0f0f13] shrink-0"><h3 className="font-display font-bold text-xl text-white tracking-tight">{modal.mode === "add" ? "Nova Demanda" : "Editar Demanda"}</h3><button onClick={closeModal} className="p-2.5 rounded-xl text-neutral-500 hover:text-white hover:bg-white/5 transition-colors"><X size={20} /></button></div>
         <div className="p-6 sm:p-8 overflow-y-auto kp-scroll flex flex-col gap-6 bg-[#09090b] flex-1">
           <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Título do Card *</label><input autoFocus value={modal.form.title || ''} onChange={(e) => updateForm({ title: e.target.value })} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 transition-all ${validationError && String(validationError).includes("Título") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Ex: Ajustar Fluxo de E-mails..." /></div>
           <div><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Contexto / Descrição *</label><textarea value={modal.form.description || ''} onChange={(e) => updateForm({ description: e.target.value })} rows={4} className={`w-full bg-[#12121a] border rounded-xl px-4 py-4 sm:py-3.5 text-sm text-white outline-none focus:border-indigo-500 resize-none transition-all ${validationError && String(validationError).includes("Descrição") ? "border-red-500" : "border-[#27272a]"}`} placeholder="Descreva os requisitos técnicos ou regras de negócio..." /></div>
