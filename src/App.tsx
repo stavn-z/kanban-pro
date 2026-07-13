@@ -1505,9 +1505,9 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                               key={t.id}
                               data-task-id={t.id}
                               style={{ touchAction: 'pan-y' }}
-                              className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group relative overflow-hidden ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'} ${dragState?.id === t.id ? 'opacity-40' : ''} ${alertRing}`}
+                              className={`rounded-2xl bg-[#1c1d26] border p-4 transition-all group relative ${isDoneOrCancelled ? 'opacity-60' : ''} ${!isEditable ? 'opacity-70 cursor-not-allowed' : 'hover:border-[#3f3f46] shadow-md'} ${dragOverId === t.id ? 'border-indigo-500 shadow-[0_-2px_15px_rgba(99,102,241,0.3)]' : 'border-[#2d3142]'} ${dragState?.id === t.id ? 'opacity-40' : ''} ${alertRing}`}
                             >
-                              {alertBar && <span className={`absolute left-0 top-0 bottom-0 w-1 ${alertBar}`} />}
+                              {alertBar && <span className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${alertBar}`} />}
                               
                               {/* Badges do Cartão */}
                               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
