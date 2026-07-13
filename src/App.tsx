@@ -111,7 +111,8 @@ function normalizeTask(t: any) {
     scheduledStart: t.scheduledStart || '',
     checklist: Array.isArray(t.checklist) ? t.checklist : [],
     history: Array.isArray(t.history) ? t.history : [],
-    recurringWeekly: !!t.recurringWeekly,
+    recurrence: t.recurrence || (t.recurringWeekly ? 'weekly' : 'none'),
+    agendaOnly: !!t.agendaOnly,
     timerElapsed: t.timerElapsed || 0,
     durationMin: t.durationMin || 0,
     createdAt: t.createdAt || t.dueDate || getBrasiliaDate(),
@@ -497,16 +498,24 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   useEffect(() => {
     const occurrenceMs = (t: any) => {
       const s = new Date(t.scheduledStart);
-      if (!t.recurringWeekly) return s.getTime();
-      // Próxima ocorrência semanal (mesmo dia da semana e horário)
       const now = new Date();
-      const occ = new Date(now);
-      occ.setHours(s.getHours(), s.getMinutes(), 0, 0);
-      const dayDiff = (s.getDay() - now.getDay() + 7) % 7;
-      occ.setDate(now.getDate() + dayDiff);
-      let ms = occ.getTime();
-      if (ms - now.getTime() < -60000) ms += 7 * 24 * 3600 * 1000;
-      return ms;
+      if (t.recurrence === 'daily') {
+        const occ = new Date(now);
+        occ.setHours(s.getHours(), s.getMinutes(), 0, 0);
+        let ms = occ.getTime();
+        if (ms - now.getTime() < -60000) ms += 24 * 3600 * 1000;
+        return ms;
+      }
+      if (t.recurrence === 'weekly') {
+        const occ = new Date(now);
+        occ.setHours(s.getHours(), s.getMinutes(), 0, 0);
+        const dayDiff = (s.getDay() - now.getDay() + 7) % 7;
+        occ.setDate(now.getDate() + dayDiff);
+        let ms = occ.getTime();
+        if (ms - now.getTime() < -60000) ms += 7 * 24 * 3600 * 1000;
+        return ms;
+      }
+      return s.getTime();
     };
     const check = () => {
       const nowMs = Date.now();
@@ -744,6 +753,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   
   const filteredTasks = visibleTasks.filter(
     (t) =>
+      !t.agendaOnly &&
       (filterClient === "all" || t.clientId === filterClient) &&
       (filterResp === "all" || t.responsibleId === filterResp) &&
       (filterPriority === "all" || t.priority === filterPriority) &&
@@ -751,11 +761,11 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       filterByPeriod(t.completedAt, filterCompletedStart, filterCompletedEnd)
   );
 
-  const activeTasksCount = visibleTasks.filter((t) => t.status !== "cancelled").length;
-  const doneCount = visibleTasks.filter((t) => t.status === "done" || t.status === "formalize").length;
+  const activeTasksCount = visibleTasks.filter((t) => t.status !== "cancelled" && !t.agendaOnly).length;
+  const doneCount = visibleTasks.filter((t) => (t.status === "done" || t.status === "formalize") && !t.agendaOnly).length;
   const overallProgress = activeTasksCount ? Math.round((doneCount / activeTasksCount) * 100) : 0;
   
-  const tasksForClosure = visibleTasks.filter(t => ['inprogress', 'paused', 'waiting', 'review', 'done'].includes(t.status));
+  const tasksForClosure = visibleTasks.filter(t => !t.agendaOnly && ['inprogress', 'paused', 'waiting', 'review', 'done'].includes(t.status));
 
   const emptyForm = { title: "", description: "", priority: "Média", durationMin: "", clientId: "", responsibleId: user.id, startDate: "", dueDate: "", status: "", waitingFor: "", checklist: [] };
 
@@ -826,7 +836,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         timerElapsed: 0,
         createdAt: getBrasiliaDate(),
         completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? getBrasiliaDate() : '',
-        recurringWeekly: false,
+        recurrence: 'none',
+        agendaOnly: false,
         history: [histEntry('created')]
       };
       setTasks((prev) => [...prev, newTask]);
@@ -862,7 +873,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             status: finalStatus,
             waitingFor: f.waitingFor || '',
             checklist: (f.checklist || []).filter((c: any) => c.text.trim()),
-            recurringWeekly: !!f.recurringWeekly,
+            recurrence: f.recurrence || 'none',
+            agendaOnly: !!f.agendaOnly,
             timerRunning, timerElapsed, timerStart,
             createdAt: t.createdAt || getBrasiliaDate(),
             completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? (t.completedAt || getBrasiliaDate()) : t.completedAt,
@@ -2933,12 +2945,19 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
     const s = new Date(t.scheduledStart);
     const sameDay = s.getFullYear() === day.getFullYear() && s.getMonth() === day.getMonth() && s.getDate() === day.getDate();
     if (sameDay) return true;
-    // Recorrente: aparece no mesmo dia da semana, em todas as semanas
-    if (t.recurringWeekly && isActionable(t) && s.getDay() === day.getDay()) return true;
+    if (!isActionable(t)) return false;
+    if (t.recurrence === 'daily') return true;                                  // repete todo dia
+    if (t.recurrence === 'weekly' && s.getDay() === day.getDay()) return true;  // mesmo dia da semana
     return false;
   });
 
-  const toggleRecurring = (taskId: string) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, recurringWeekly: !t.recurringWeekly } : t));
+  const cycleRecurrence = (taskId: string) => setTasks((prev: any) => prev.map((t: any) => {
+    if (t.id !== taskId) return t;
+    const order = ['none', 'daily', 'weekly'];
+    return { ...t, recurrence: order[(order.indexOf(t.recurrence || 'none') + 1) % 3] };
+  }));
+
+  const recurLabel = (r: string) => r === 'daily' ? 'dia' : r === 'weekly' ? 'sem' : '';
 
   const setSchedule = (taskId: string, value: string) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, scheduledStart: value } : t));
   const setDuration = (taskId: string, dur: number) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, durationMin: dur } : t));
@@ -2959,33 +2978,37 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
   const [resizePreview, setResizePreview] = useState<{ id: string, dur: number } | null>(null);
 
   // Criação de evento pela Agenda (clicar num horário vazio)
-  const [createSlot, setCreateSlot] = useState<{ day: Date, hour: number, minute: number } | null>(null);
+  const [createSlot, setCreateSlot] = useState<{ day: Date } | null>(null);
   const [cTitle, setCTitle] = useState('');
   const [cClient, setCClient] = useState('');
+  const [cDate, setCDate] = useState('');
+  const [cTime, setCTime] = useState('');
   const [cDur, setCDur] = useState(60);
-  const [cRecur, setCRecur] = useState(false);
+  const [cRecur, setCRecur] = useState('none'); // 'none' | 'daily' | 'weekly'
+  const [cShowBoard, setCShowBoard] = useState(false);
   const [cErr, setCErr] = useState('');
 
   const openCreateAt = (e: React.MouseEvent, day: Date) => {
     const rect = (e.currentTarget as Element).getBoundingClientRect();
     const rawMin = ((e.clientY - rect.top) / ROW_H) * 60;
     const snapped = Math.max(0, Math.min(23 * 60 + 30, Math.round(rawMin / 30) * 30));
-    setCTitle(''); setCClient(''); setCDur(60); setCRecur(false); setCErr('');
-    setCreateSlot({ day, hour: Math.floor(snapped / 60), minute: snapped % 60 });
+    setCTitle(''); setCClient(''); setCDur(60); setCRecur('none'); setCShowBoard(false); setCErr('');
+    setCDate(`${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`);
+    setCTime(`${pad(Math.floor(snapped / 60))}:${pad(snapped % 60)}`);
+    setCreateSlot({ day });
   };
 
   const createEvent = () => {
     if (!cTitle.trim()) { setCErr('Dê um título ao evento.'); return; }
-    if (!createSlot) return;
-    const start = new Date(createSlot.day); start.setHours(createSlot.hour, createSlot.minute, 0, 0);
-    const value = toLocalInput(start);
+    if (!cDate || !cTime) { setCErr('Informe a data e a hora.'); return; }
+    const value = `${cDate}T${cTime}`;
     const newTask = {
       id: nextId(), title: cTitle.trim(), description: '', priority: 'Média',
       durationMin: cDur, clientId: cClient, responsibleId: user.id,
       startDate: '', dueDate: '', status: 'todo', waitingFor: '', checklist: [],
       timerRunning: false, timerStart: null, timerElapsed: 0,
       createdAt: getBrasiliaDate(), completedAt: '',
-      scheduledStart: value, recurringWeekly: cRecur, history: [histEntry('created')],
+      scheduledStart: value, recurrence: cRecur, agendaOnly: !cShowBoard, history: [histEntry('created')],
     };
     setTasks((prev: any) => [...prev, newTask]);
     setCreateSlot(null);
@@ -3153,14 +3176,14 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
                     return (
                       <div key={t.id} onClick={(e) => e.stopPropagation()} className={`absolute left-1 right-1 rounded-lg bg-teal-500/15 border border-teal-500/40 overflow-hidden group ${isDragging ? 'opacity-40' : ''}`} style={{ top, height: bh }}>
                         <div onPointerDown={(e) => beginDrag(e, t, 'move')} style={{ touchAction: 'none' }} className="h-full p-1.5 cursor-grab active:cursor-grabbing select-none">
-                          <div className="text-[9px] font-mono font-bold text-teal-300 leading-none mb-1 flex items-center gap-1">{t.recurringWeekly && <RotateCcw size={8} />}{pad(s.getHours())}:{pad(s.getMinutes())} · {dur}min</div>
+                          <div className="text-[9px] font-mono font-bold text-teal-300 leading-none mb-1 flex items-center gap-1">{t.recurrence && t.recurrence !== 'none' && <span className="flex items-center gap-0.5 text-teal-400"><RotateCcw size={8} />{recurLabel(t.recurrence)}</span>}{pad(s.getHours())}:{pad(s.getMinutes())} · {dur}min</div>
                           <div className="text-[10px] font-bold text-white leading-tight line-clamp-2">{t.title}</div>
                           {cn && bh > ROW_H && <div className="text-[8px] text-teal-300/70 uppercase tracking-widest font-bold mt-1 truncate">{cn}</div>}
                         </div>
                         <div className="absolute top-1 right-1 flex gap-1">
-                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleRecurring(t.id)} className={`p-1 rounded hover:bg-black/60 ${t.recurringWeekly ? 'bg-teal-500/50 text-white' : 'bg-black/40 text-neutral-400 hover:text-teal-300'}`} title={t.recurringWeekly ? 'Repetindo toda semana (clique p/ parar)' : 'Repetir toda semana'}><RotateCcw size={11} /></button>
+                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => cycleRecurrence(t.id)} className={`p-1 rounded hover:bg-black/60 ${t.recurrence && t.recurrence !== 'none' ? 'bg-teal-500/50 text-white' : 'bg-black/40 text-neutral-400 hover:text-teal-300'}`} title={t.recurrence === 'daily' ? 'Repete todo dia (clique: semana)' : t.recurrence === 'weekly' ? 'Repete toda semana (clique: parar)' : 'Repetir (clique: dia → semana)'}><RotateCcw size={11} /></button>
                           <a href={buildGCalLink(t, cn)} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} className="p-1 rounded bg-black/40 text-teal-300 hover:bg-black/60" title="Abrir no Google Agenda"><ExternalLink size={11} /></a>
-                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setSchedule(t.id, '')} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-red-400 hover:bg-black/60" title="Desagendar"><X size={11} /></button>
+                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => { if (t.agendaOnly) { setTasks((prev: any) => prev.filter((x: any) => x.id !== t.id)); } else { setSchedule(t.id, ''); } }} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-red-400 hover:bg-black/60" title={t.agendaOnly ? 'Excluir evento' : 'Desagendar'}><X size={11} /></button>
                         </div>
                         <div onPointerDown={(e) => { const rect = (e.currentTarget.parentElement as Element).getBoundingClientRect(); beginResize(e, t, rect.top); }} style={{ touchAction: 'none' }} className="absolute bottom-0 left-0 right-0 h-2.5 cursor-ns-resize bg-teal-500/40 opacity-0 group-hover:opacity-100 transition-opacity" title="Ajustar duração" />
                       </div>
@@ -3188,7 +3211,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
                 <div className="p-2 bg-teal-500/10 rounded-xl border border-teal-500/20"><CalendarDays size={18} className="text-teal-400" /></div>
                 <div>
                   <h3 className="font-display font-bold text-lg text-white">Novo evento</h3>
-                  <p className="text-[11px] text-neutral-500 mt-0.5 capitalize">{new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(createSlot.day)} · {pad(createSlot.hour)}:{pad(createSlot.minute)}</p>
+                  <p className="text-[11px] text-neutral-500 mt-0.5">Reunião, atividade ou demanda</p>
                 </div>
               </div>
               <button onClick={() => setCreateSlot(null)} className="p-2 rounded-xl text-neutral-500 hover:text-white transition-colors"><X size={20} /></button>
@@ -3197,7 +3220,17 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
               {cErr && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3 py-2.5 rounded-lg flex items-center gap-2"><AlertTriangle size={14} className="shrink-0" /> {cErr}</div>}
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Título *</label>
-                <input autoFocus value={cTitle} onChange={e => { setCTitle(e.target.value); setCErr(''); }} onKeyDown={e => e.key === 'Enter' && createEvent()} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-teal-500 transition-colors" placeholder="Reunião, atividade, demanda..." />
+                <input autoFocus value={cTitle} onChange={e => { setCTitle(e.target.value); setCErr(''); }} onKeyDown={e => e.key === 'Enter' && createEvent()} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-teal-500 transition-colors" placeholder="Reunião, almoço, academia, demanda..." />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Data</label>
+                  <input type="date" value={cDate} onChange={e => setCDate(e.target.value)} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-teal-500 transition-colors" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Hora</label>
+                  <input type="time" value={cTime} onChange={e => setCTime(e.target.value)} className="w-full bg-[#12121a] border border-[#27272a] rounded-xl px-4 py-3.5 text-sm text-white outline-none focus:border-teal-500 transition-colors" />
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Cliente</label>
@@ -3217,9 +3250,20 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
                   ))}
                 </div>
               </div>
-              <button onClick={() => setCRecur(!cRecur)} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border transition-colors ${cRecur ? 'bg-teal-500/10 border-teal-500/40' : 'bg-[#12121a] border-[#27272a]'}`}>
-                <span className="flex items-center gap-2 text-sm font-medium text-white"><RotateCcw size={15} className={cRecur ? 'text-teal-400' : 'text-neutral-500'} /> Repetir toda semana</span>
-                <span className={`w-10 h-6 rounded-full transition-colors relative ${cRecur ? 'bg-teal-500' : 'bg-[#27272a]'}`}><span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${cRecur ? 'left-[18px]' : 'left-0.5'}`} /></span>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Repetição</label>
+                <div className="flex gap-2">
+                  {[{ v: 'none', l: 'Não repete' }, { v: 'daily', l: 'Todo dia' }, { v: 'weekly', l: 'Toda semana' }].map(o => (
+                    <button key={o.v} onClick={() => setCRecur(o.v)} className={`flex-1 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest border transition-colors ${cRecur === o.v ? 'bg-teal-500/15 text-teal-300 border-teal-500/40' : 'bg-[#12121a] text-neutral-500 border-[#27272a] hover:text-neutral-300'}`}>{o.l}</button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={() => setCShowBoard(!cShowBoard)} className={`flex items-center justify-between px-4 py-3.5 rounded-xl border transition-colors ${cShowBoard ? 'bg-indigo-500/10 border-indigo-500/40' : 'bg-[#12121a] border-[#27272a]'}`}>
+                <span className="flex flex-col text-left">
+                  <span className="text-sm font-medium text-white">Mostrar no quadro</span>
+                  <span className="text-[10px] text-neutral-500">Aparece como demanda no Kanban (senão fica só na Agenda)</span>
+                </span>
+                <span className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ml-3 ${cShowBoard ? 'bg-indigo-500' : 'bg-[#27272a]'}`}><span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${cShowBoard ? 'left-[18px]' : 'left-0.5'}`} /></span>
               </button>
             </div>
             <div className="px-6 py-5 border-t border-[#27272a] bg-[#0f0f13] flex items-center justify-end gap-3">
