@@ -750,6 +750,20 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       return new Date(+y, +m - 1, +d).setHours(0, 0, 0, 0) < todayMs;
     }).length;
   }, [tasks, user]);
+
+  // Demandas que pedem atenção HOJE: atrasadas + vencem hoje + iniciam hoje
+  const todayCount = useMemo(() => {
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+    const dayMs = (s: string) => { if (!s) return null; const [y, m, d] = s.slice(0, 10).split('-'); return new Date(+y, +m - 1, +d).setHours(0, 0, 0, 0); };
+    return tasks.filter(t => {
+      if (t.responsibleId !== user.id) return false;
+      if (['done', 'cancelled', 'formalize'].includes(t.status) || t.agendaOnly) return false;
+      const due = dayMs(t.dueDate);
+      const start = dayMs(t.startDate);
+      const sched = dayMs(t.scheduledStart);
+      return (due !== null && due <= todayMs) || start === todayMs || sched === todayMs;
+    }).length;
+  }, [tasks, user]);
   
   const filteredTasks = visibleTasks.filter(
     (t) =>
@@ -836,8 +850,9 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         timerElapsed: 0,
         createdAt: getBrasiliaDate(),
         completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? getBrasiliaDate() : '',
-        recurrence: 'none',
-        agendaOnly: false,
+        scheduledStart: f.scheduledStart || '',
+        recurrence: f.recurrence || 'none',
+        agendaOnly: !!f.agendaOnly,
         history: [histEntry('created')]
       };
       setTasks((prev) => [...prev, newTask]);
@@ -1243,7 +1258,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
           
           <div className="flex flex-col items-center gap-3 w-full px-3">
              <SidebarBtn icon={<LayoutDashboard size={20} />} active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} tooltip="Pipeline" />
-             <SidebarBtn icon={<Sun size={20} />} active={activeTab === 'today' && !isClosingModal} onClick={() => setActiveTab('today')} tooltip="Meu Dia" alert={overdueCount > 0} />
+             <SidebarBtn icon={<Sun size={20} />} active={activeTab === 'today' && !isClosingModal} onClick={() => setActiveTab('today')} tooltip="Meu Dia" count={todayCount} />
              <SidebarBtn icon={<Clock size={20} />} active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} tooltip="Timer" />
              <SidebarBtn icon={<CalendarDays size={20} />} active={activeTab === 'agenda' && !isClosingModal} onClick={() => setActiveTab('agenda')} tooltip="Agenda" />
              <SidebarBtn icon={<Users size={20} />} active={activeTab === 'responsibles' && !isClosingModal} onClick={() => setActiveTab('responsibles')} tooltip="Equipe" />
@@ -1321,7 +1336,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         {activeTab === 'responsibles' && <OverlayModal title="Equipe (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} tasks={tasks} user={user} /></OverlayModal>}
         {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={visibleClients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} /></OverlayModal>}
         {activeTab === 'reports' && <AnalyticsModal isClosing={isClosingModal} onClose={handleCloseTab} tasks={filteredTasks} clients={visibleClients} responsibles={responsibles} getElapsed={getElapsed} globalLookerUrl={globalLookerUrl} setGlobalLookerUrl={setGlobalLookerUrl} user={user} />}
-        {activeTab === 'agenda' && <OverlayModal title="Agenda" icon={<CalendarDays size={20} className="text-teal-400"/>} isClosing={isClosingModal} onClose={handleCloseTab} fullWidth><CalendarView tasks={visibleTasks} setTasks={setTasks} clients={clients} handleRequestMove={handleRequestMove} user={user} /></OverlayModal>}
+        {activeTab === 'agenda' && <OverlayModal title="Agenda" icon={<CalendarDays size={20} className="text-teal-400"/>} isClosing={isClosingModal} onClose={handleCloseTab} fullWidth><CalendarView tasks={visibleTasks} setTasks={setTasks} clients={clients} handleRequestMove={handleRequestMove} user={user} onCreateCard={(prefill: any) => setModal({ mode: 'add', form: { ...emptyForm, ...prefill } })} /></OverlayModal>}
 
         {/* BOARD VIEW */}
         <div className={`flex-1 flex flex-col min-h-0 ${activeTab !== 'board' ? 'hidden md:flex opacity-30 pointer-events-none transition-opacity duration-300' : 'fade-in'}`}>
@@ -1353,6 +1368,12 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                      </div>
                      <span className="text-xs font-bold text-white shrink-0">{overallProgress}%</span>
                    </div>
+
+                   {todayCount > 0 && (
+                     <button onClick={() => setActiveTab('today')} className="h-11 px-3 sm:px-4 flex items-center justify-center gap-2 rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shrink-0 bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 shadow-[0_0_15px_rgba(239,68,68,0.15)]" title="Ver no Meu Dia">
+                       <AlertTriangle size={15} /> <span className="whitespace-nowrap">{todayCount} pra hoje</span>
+                     </button>
+                   )}
 
                    {tasksForClosure.length > 0 && (
                       <button onClick={() => setClosureModal(true)} className="h-11 w-11 sm:w-auto px-0 sm:px-6 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
@@ -1641,7 +1662,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
       {/* MOBILE BOTTOM NAV */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around pt-2.5 px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] bg-[#12121a]/95 backdrop-blur-md border-t border-[#27272a] z-[100] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
          <MobileNavBtn icon={<LayoutDashboard size={20} />} label="Board" active={activeTab === 'board' && !isClosingModal} onClick={() => {if(activeTab !== 'board') handleCloseTab()}} />
-         <MobileNavBtn icon={<Sun size={20} />} label="Hoje" active={activeTab === 'today' && !isClosingModal} onClick={() => setActiveTab('today')} alert={overdueCount > 0} />
+         <MobileNavBtn icon={<Sun size={20} />} label="Hoje" active={activeTab === 'today' && !isClosingModal} onClick={() => setActiveTab('today')} count={todayCount} />
          <MobileNavBtn icon={<Clock size={20} />} label="Timer" active={activeTab === 'timer' && !isClosingModal} onClick={() => setActiveTab('timer')} />
          <MobileNavBtn icon={<CalendarDays size={20} />} label="Agenda" active={activeTab === 'agenda' && !isClosingModal} onClick={() => setActiveTab('agenda')} />
          <MobileNavBtn icon={<Users size={20} />} label="Equipe" active={activeTab === 'responsibles' && !isClosingModal} onClick={() => setActiveTab('responsibles')} />
@@ -1886,11 +1907,13 @@ function ProfileModal({ user, responsibles, onClose, onUpdate }: any) {
   );
 }
 
-function SidebarBtn({ icon, active, onClick, tooltip, alert }: any) {
+function SidebarBtn({ icon, active, onClick, tooltip, alert, count }: any) {
   return (
     <button onClick={onClick} className={`w-12 h-12 rounded-[14px] flex items-center justify-center transition-all relative group ${active ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]' : 'bg-transparent text-neutral-500 hover:bg-white/5 hover:text-white'}`}>
       {icon}
-      {alert && <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
+      {count > 0 ? (
+        <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.8)] border border-[#0a0a0f]">{count}</span>
+      ) : alert && <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
       <span className="absolute left-16 bg-black text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-md opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all pointer-events-none z-50 border border-white/10 whitespace-nowrap shadow-xl">
         {tooltip}
       </span>
@@ -1898,12 +1921,14 @@ function SidebarBtn({ icon, active, onClick, tooltip, alert }: any) {
   );
 }
 
-function MobileNavBtn({ icon, label, active, onClick, alert }: any) {
+function MobileNavBtn({ icon, label, active, onClick, alert, count }: any) {
   return (
     <button onClick={onClick} className={`flex-1 py-2 px-1 rounded-xl flex flex-col items-center justify-center transition-all relative gap-1.5 ${active ? 'text-indigo-400' : 'text-neutral-500 hover:text-neutral-300'}`}>
       {icon}
       <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-widest truncate max-w-full">{label}</span>
-      {alert && <span className="absolute top-1 right-[25%] w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
+      {count > 0 ? (
+        <span className="absolute top-0 right-[22%] min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[8px] font-black flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.8)]">{count}</span>
+      ) : alert && <span className="absolute top-1 right-[25%] w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
     </button>
   );
 }
@@ -2918,7 +2943,7 @@ function TodayView({ tasks, clients, user, getElapsed, onOpen, onToggleTimer, on
   );
 }
 
-function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any) {
+function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCreateCard }: any) {
   const ROW_H = 44; // pixels por hora
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
@@ -2932,6 +2957,12 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
   }), [weekStart]);
+
+  const [weekdaysOnly, setWeekdaysOnly] = useState(() => {
+    try { return localStorage.getItem('lumina_agenda_weekdays') === '1'; } catch { return false; }
+  });
+  useEffect(() => { try { localStorage.setItem('lumina_agenda_weekdays', weekdaysOnly ? '1' : '0'); } catch {} }, [weekdaysOnly]);
+  const visibleDays = weekdaysOnly ? days.slice(0, 5) : days;
 
   const pad = (n: number) => String(n).padStart(2, '0');
   const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -3002,13 +3033,22 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
     if (!cTitle.trim()) { setCErr('Dê um título ao evento.'); return; }
     if (!cDate || !cTime) { setCErr('Informe a data e a hora.'); return; }
     const value = `${cDate}T${cTime}`;
+    if (cShowBoard) {
+      // Vai pro quadro: abre o formulário completo pra detalhar (descrição, checklist)
+      onCreateCard({
+        title: cTitle.trim(), clientId: cClient, durationMin: String(cDur),
+        startDate: cDate, status: 'todo', scheduledStart: value, recurrence: cRecur, agendaOnly: false,
+      });
+      setCreateSlot(null);
+      return;
+    }
     const newTask = {
       id: nextId(), title: cTitle.trim(), description: '', priority: 'Média',
       durationMin: cDur, clientId: cClient, responsibleId: user.id,
       startDate: '', dueDate: '', status: 'todo', waitingFor: '', checklist: [],
       timerRunning: false, timerStart: null, timerElapsed: 0,
       createdAt: getBrasiliaDate(), completedAt: '',
-      scheduledStart: value, recurrence: cRecur, agendaOnly: !cShowBoard, history: [histEntry('created')],
+      scheduledStart: value, recurrence: cRecur, agendaOnly: true, history: [histEntry('created')],
     };
     setTasks((prev: any) => [...prev, newTask]);
     setCreateSlot(null);
@@ -3127,6 +3167,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
         <div className="flex items-center gap-3">
           <span className="text-sm font-bold text-white">{weekLabel}</span>
           <button onClick={goToday} className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 hover:bg-teal-500/20 transition-colors">Hoje</button>
+          <button onClick={() => setWeekdaysOnly(!weekdaysOnly)} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-colors ${weekdaysOnly ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'}`} title="Alternar fim de semana">{weekdaysOnly ? 'Dias úteis' : 'Todos os dias'}</button>
         </div>
         <button onClick={() => shiftWeek(1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors"><ChevronRight size={18} /></button>
       </div>
@@ -3145,7 +3186,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
           </div>
 
           {/* Colunas dos dias */}
-          {days.map((day, i) => {
+          {visibleDays.map((day, i) => {
             const dayTasks = tasksOnDay(day);
             const isToday = new Date(day).setHours(0, 0, 0, 0) === todayKey;
             const showHint = dropHint && dropHint.dayIndex === i;
@@ -3268,7 +3309,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user }: any
             </div>
             <div className="px-6 py-5 border-t border-[#27272a] bg-[#0f0f13] flex items-center justify-end gap-3">
               <button onClick={() => setCreateSlot(null)} className="text-xs font-bold uppercase tracking-widest px-5 py-3.5 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
-              <button onClick={createEvent} className="text-xs font-black uppercase tracking-widest px-8 py-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)]">Criar</button>
+              <button onClick={createEvent} className="text-xs font-black uppercase tracking-widest px-8 py-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)]">{cShowBoard ? 'Detalhar' : 'Criar'}</button>
             </div>
           </div>
         </div>
