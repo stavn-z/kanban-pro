@@ -2841,7 +2841,7 @@ function TodayView({ tasks, clients, user, getElapsed, onOpen, onToggleTimer, on
   const clientName = (id: string) => clients.find((c: any) => c.id === id)?.name || '';
   const greet = nowD.getHours() < 12 ? 'Bom dia' : nowD.getHours() < 18 ? 'Boa tarde' : 'Boa noite';
 
-  const mine = tasks.filter((t: any) => t.responsibleId === user.id);
+  const mine = tasks.filter((t: any) => t.responsibleId === user.id && !t.agendaOnly && !t.generatesCards && !t.templateId);
   const isActive = (t: any) => !['done', 'cancelled', 'formalize'].includes(t.status);
   const dueMs = (t: any) => { if (!t.dueDate) return null; const [y, m, d] = t.dueDate.split('-'); return new Date(+y, +m - 1, +d).setHours(0, 0, 0, 0); };
   const schedDay = (t: any) => t.scheduledStart ? t.scheduledStart.slice(0, 10) : null;
