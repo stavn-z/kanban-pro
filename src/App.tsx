@@ -726,6 +726,13 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     return t.timerElapsed || 0;
   };
 
+  // Exclui a demanda de vez (estado local + Supabase), evitando que "volte" no reload
+  const deleteTaskById = async (id: string) => {
+    delete lastSyncedTasksRef.current[id];
+    setTasks((prev: any) => prev.filter((t: any) => t.id !== id));
+    if ((window as any).supabaseClient) await (window as any).supabaseClient.from('tasks').delete().eq('id', id.toString());
+  };
+
   const visibleClients = useMemo(() => {
     if (user.isAdmin) return clients;
     return clients.filter(c => c.ownerId === user.id || tasks.some(t => t.clientId === c.id && t.responsibleId === user.id));
@@ -1353,7 +1360,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         {activeTab === 'responsibles' && <OverlayModal title="Equipe (Contas)" icon={<Users size={20} className="text-indigo-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ResponsiblesPanelContent responsibles={responsibles} tasks={tasks} user={user} /></OverlayModal>}
         {activeTab === 'clients' && <OverlayModal title="Gestão de Clientes" icon={<Building2 size={20} className="text-purple-400"/>} isClosing={isClosingModal} onClose={handleCloseTab}><ClientsPanelContent clients={visibleClients} setClients={setClients} tasks={tasks} setTasks={setTasks} user={user} getElapsed={getElapsed} /></OverlayModal>}
         {activeTab === 'reports' && <AnalyticsModal isClosing={isClosingModal} onClose={handleCloseTab} tasks={filteredTasks} clients={visibleClients} responsibles={responsibles} getElapsed={getElapsed} globalLookerUrl={globalLookerUrl} setGlobalLookerUrl={setGlobalLookerUrl} user={user} />}
-        {activeTab === 'agenda' && <OverlayModal title="Agenda" icon={<CalendarDays size={20} className="text-teal-400"/>} isClosing={isClosingModal} onClose={handleCloseTab} fullWidth><CalendarView tasks={visibleTasks} setTasks={setTasks} clients={clients} handleRequestMove={handleRequestMove} user={user} onCreateCard={(prefill: any) => setModal({ mode: 'add', form: { ...emptyForm, ...prefill } })} /></OverlayModal>}
+        {activeTab === 'agenda' && <OverlayModal title="Agenda" icon={<CalendarDays size={20} className="text-teal-400"/>} isClosing={isClosingModal} onClose={handleCloseTab} fullWidth><CalendarView tasks={visibleTasks} setTasks={setTasks} clients={clients} handleRequestMove={handleRequestMove} user={user} onCreateCard={(prefill: any) => setModal({ mode: 'add', form: { ...emptyForm, ...prefill } })} onDeleteTask={deleteTaskById} /></OverlayModal>}
 
         {/* BOARD VIEW */}
         <div className={`flex-1 flex flex-col min-h-0 ${activeTab !== 'board' ? 'hidden md:flex opacity-30 pointer-events-none transition-opacity duration-300' : 'fade-in'}`}>
@@ -1783,10 +1790,8 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
               <button onClick={() => setConfirmDelete(null)} className="w-full sm:flex-1 py-3.5 sm:py-3 rounded-2xl border border-[#27272a] hover:bg-white/5 text-white font-bold transition-all text-sm">Cancelar</button>
               <button onClick={async () => {
                   const idToDelete = confirmDelete;
-                  delete lastSyncedTasksRef.current[idToDelete as string];
-                  setTasks((prev: any) => prev.filter((t: any) => t.id !== idToDelete));
                   setConfirmDelete(null);
-                  if ((window as any).supabaseClient) await (window as any).supabaseClient.from('tasks').delete().eq('id', (idToDelete as string).toString());
+                  await deleteTaskById(idToDelete as string);
                 }} 
                 className="w-full sm:flex-1 py-3.5 sm:py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all text-sm shadow-lg shadow-red-600/10"
               >
@@ -2972,7 +2977,7 @@ function TodayView({ tasks, clients, user, getElapsed, onOpen, onToggleTimer, on
   );
 }
 
-function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCreateCard }: any) {
+function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCreateCard, onDeleteTask }: any) {
   const ROW_H = 44; // pixels por hora
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -3280,7 +3285,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
                         <div className="absolute top-1 right-1 flex gap-1">
                           <button onPointerDown={(e) => e.stopPropagation()} onClick={() => cycleRecurrence(t.id)} className={`p-1 rounded hover:bg-black/60 ${t.recurrence && t.recurrence !== 'none' ? 'bg-teal-500/50 text-white' : 'bg-black/40 text-neutral-400 hover:text-teal-300'}`} title={t.recurrence === 'daily' ? 'Repete todo dia (clique: semana)' : t.recurrence === 'weekly' ? 'Repete toda semana (clique: parar)' : 'Repetir (clique: dia → semana)'}><RotateCcw size={11} /></button>
                           <a href={buildGCalLink(t, cn)} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} className="p-1 rounded bg-black/40 text-teal-300 hover:bg-black/60" title="Abrir no Google Agenda"><ExternalLink size={11} /></a>
-                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => { if (t.agendaOnly) { setTasks((prev: any) => prev.filter((x: any) => x.id !== t.id)); } else { setSchedule(t.id, ''); } }} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-red-400 hover:bg-black/60" title={t.agendaOnly ? 'Excluir evento' : 'Desagendar'}><X size={11} /></button>
+                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => { if (t.agendaOnly) { onDeleteTask(t.id); } else { setSchedule(t.id, ''); } }} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-red-400 hover:bg-black/60" title={t.agendaOnly ? 'Excluir evento' : 'Desagendar'}><X size={11} /></button>
                         </div>
                         <div onPointerDown={(e) => { const rect = (e.currentTarget.parentElement as Element).getBoundingClientRect(); beginResize(e, t, rect.top); }} style={{ touchAction: 'none' }} className="absolute bottom-0 left-0 right-0 h-2.5 cursor-ns-resize bg-teal-500/40 opacity-0 group-hover:opacity-100 transition-opacity" title="Ajustar duração" />
                       </div>
