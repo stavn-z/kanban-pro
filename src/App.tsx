@@ -113,6 +113,9 @@ function normalizeTask(t: any) {
     history: Array.isArray(t.history) ? t.history : [],
     recurrence: t.recurrence || (t.recurringWeekly ? 'weekly' : 'none'),
     agendaOnly: !!t.agendaOnly,
+    generatesCards: !!t.generatesCards,
+    templateId: t.templateId || '',
+    occurrenceKey: t.occurrenceKey || '',
     timerElapsed: t.timerElapsed || 0,
     durationMin: t.durationMin || 0,
     createdAt: t.createdAt || t.dueDate || getBrasiliaDate(),
@@ -523,6 +526,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         if (t.responsibleId !== user.id) return false;
         if (!t.scheduledStart) return false;
         if (['done', 'cancelled', 'formalize'].includes(t.status)) return false;
+        if (t.generatesCards) return false;
         const occMs = occurrenceMs(t);
         if (dueAlertedRef.current.has(t.id + '|' + occMs)) return false;
         const diff = occMs - nowMs;
@@ -543,6 +547,47 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     check();
     const id = setInterval(check, 30000);
     return () => clearInterval(id);
+  }, [tasks, user]);
+
+  // Materialização de recorrências: gera um card real por ocorrência (modelos "geram cards")
+  useEffect(() => {
+    const gen = () => {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const pad2 = (n: number) => String(n).padStart(2, '0');
+      const todayStr = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+      const existingIds = new Set(tasks.map((t: any) => t.id));
+      const news: any[] = [];
+      tasks.forEach((t: any) => {
+        if (!t.generatesCards || !t.scheduledStart) return;
+        if (t.responsibleId !== user.id) return;
+        const s = new Date(t.scheduledStart);
+        const occToday = t.recurrence === 'daily' || (t.recurrence === 'weekly' && s.getDay() === today.getDay());
+        if (!occToday) return;
+        const instId = `inst_${t.id}_${todayStr}`;
+        if (existingIds.has(instId)) return;
+        news.push({
+          id: instId,
+          title: t.title, description: t.description || '', priority: t.priority || 'Média',
+          durationMin: t.durationMin || 0, clientId: t.clientId || '', responsibleId: t.responsibleId,
+          startDate: todayStr, dueDate: '', status: 'todo', waitingFor: '',
+          checklist: (t.checklist || []).map((c: any) => ({ id: nextId(), text: c.text, done: false })),
+          timerRunning: false, timerStart: null, timerElapsed: 0,
+          createdAt: getBrasiliaDate(), completedAt: '',
+          scheduledStart: `${todayStr}T${pad2(s.getHours())}:${pad2(s.getMinutes())}`,
+          recurrence: 'none', agendaOnly: false, generatesCards: false,
+          templateId: t.id, occurrenceKey: `${t.id}|${todayStr}`,
+          history: [histEntry('created')],
+        });
+      });
+      if (news.length) setTasks((prev: any) => {
+        const have = new Set(prev.map((p: any) => p.id));
+        const add = news.filter(n => !have.has(n.id));
+        return add.length ? [...prev, ...add] : prev;
+      });
+    };
+    gen();
+    const gid = setInterval(gen, 60000);
+    return () => clearInterval(gid);
   }, [tasks, user]);
 
   // Busca dados da Nuvem (o RLS já filtra o que cada usuário pode ver)
@@ -767,7 +812,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
   
   const filteredTasks = visibleTasks.filter(
     (t) =>
-      !t.agendaOnly &&
+      !t.agendaOnly && !t.generatesCards &&
       (filterClient === "all" || t.clientId === filterClient) &&
       (filterResp === "all" || t.responsibleId === filterResp) &&
       (filterPriority === "all" || t.priority === filterPriority) &&
@@ -853,6 +898,9 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         scheduledStart: f.scheduledStart || '',
         recurrence: f.recurrence || 'none',
         agendaOnly: !!f.agendaOnly,
+        generatesCards: !!f.generatesCards,
+        templateId: f.templateId || '',
+        occurrenceKey: f.occurrenceKey || '',
         history: [histEntry('created')]
       };
       setTasks((prev) => [...prev, newTask]);
@@ -1361,7 +1409,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                      <Search size={16} /> <span className="hidden lg:inline">Buscar</span>
                    </button>
 
-                   <div className="glass-panel h-11 flex-1 flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0 lg:flex">
+                   <div className="glass-panel h-11 w-full order-last sm:w-auto sm:flex-1 sm:order-none flex items-center px-4 rounded-xl gap-3 shadow-sm min-w-0">
                      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Progresso</span>
                      <div className="flex-1 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${overallProgress}%` }} />
@@ -2972,6 +3020,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
   const unscheduled = tasks.filter((t: any) => isActionable(t) && !t.scheduledStart);
 
   const tasksOnDay = (day: Date) => tasks.filter((t: any) => {
+    if (t.templateId) return false; // instâncias geradas aparecem só no quadro
     if (!t.scheduledStart) return false;
     const s = new Date(t.scheduledStart);
     const sameDay = s.getFullYear() === day.getFullYear() && s.getMonth() === day.getMonth() && s.getDate() === day.getDate();
@@ -2996,7 +3045,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
   const scheduleAndStart = (task: any, day: Date, hour: number, minute: number) => {
     const start = new Date(day); start.setHours(hour, minute, 0, 0);
     const value = toLocalInput(start);
-    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, status: 'inprogress' } : t));
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value } : t));
     const link = buildGCalLink({ ...task, scheduledStart: value }, clientName(task.clientId));
     if (link !== '#') window.open(link, '_blank', 'noopener');
   };
@@ -3037,7 +3086,8 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
       // Vai pro quadro: abre o formulário completo pra detalhar (descrição, checklist)
       onCreateCard({
         title: cTitle.trim(), clientId: cClient, durationMin: String(cDur),
-        startDate: cDate, status: 'todo', scheduledStart: value, recurrence: cRecur, agendaOnly: false,
+        startDate: cRecur === 'none' ? cDate : '', status: 'todo', scheduledStart: value,
+        recurrence: cRecur, agendaOnly: false, generatesCards: cRecur !== 'none',
       });
       setCreateSlot(null);
       return;
@@ -3132,7 +3182,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
   return (
     <div className="flex flex-col h-full fade-in gap-5" onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
       <p className="text-sm text-neutral-400 text-center max-w-2xl mx-auto shrink-0">
-        Arraste uma demanda de "A Agendar" para o dia e horário em que vai atuar. Ao soltar, o card vai para "Em Andamento" e o Google Agenda abre já preenchido. Arraste a borda inferior de um bloco para ajustar a duração.
+        Arraste uma demanda de "A Agendar" para o dia e horário em que vai atuar — o card é agendado ali (o status não muda) e o Google Agenda abre já preenchido. Ou clique num horário vazio para criar um novo evento. Arraste a borda inferior de um bloco para ajustar a duração.
       </p>
 
       {/* A agendar */}
@@ -3162,19 +3212,18 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
       </div>
 
       {/* Navegação de semana */}
-      <div className="flex items-center justify-between shrink-0 border-t border-[#27272a] pt-4">
-        <button onClick={() => shiftWeek(-1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors"><ChevronLeft size={18} /></button>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-white">{weekLabel}</span>
-          <button onClick={goToday} className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 hover:bg-teal-500/20 transition-colors">Hoje</button>
-          <button onClick={() => setWeekdaysOnly(!weekdaysOnly)} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-colors ${weekdaysOnly ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'}`} title="Alternar fim de semana">{weekdaysOnly ? 'Dias úteis' : 'Todos os dias'}</button>
-        </div>
-        <button onClick={() => shiftWeek(1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors"><ChevronRight size={18} /></button>
+      <div className="flex items-center justify-center flex-wrap gap-2 shrink-0 border-t border-[#27272a] pt-4">
+        <button onClick={() => shiftWeek(-1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors shrink-0"><ChevronLeft size={18} /></button>
+        <span className="text-sm font-bold text-white px-1 whitespace-nowrap">{weekLabel}</span>
+        <button onClick={() => shiftWeek(1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors shrink-0"><ChevronRight size={18} /></button>
+        <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
+        <button onClick={goToday} className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 hover:bg-teal-500/20 transition-colors shrink-0">Hoje</button>
+        <button onClick={() => setWeekdaysOnly(!weekdaysOnly)} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-colors shrink-0 ${weekdaysOnly ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'}`} title="Alternar fim de semana">{weekdaysOnly ? 'Dias úteis' : 'Todos os dias'}</button>
       </div>
 
       {/* Grade 24h */}
       <div className="flex-1 overflow-auto kp-scroll border border-[#27272a] rounded-2xl bg-[#0d0d12] min-h-[240px]">
-        <div className="flex min-w-max">
+        <div className={`flex ${weekdaysOnly ? 'w-full' : 'min-w-max'}`}>
           {/* Gutter de horas */}
           <div className="sticky left-0 z-20 bg-[#0d0d12] border-r border-white/5 shrink-0" style={{ width: 46 }}>
             <div className="h-9 border-b border-white/5" />
@@ -3191,7 +3240,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
             const isToday = new Date(day).setHours(0, 0, 0, 0) === todayKey;
             const showHint = dropHint && dropHint.dayIndex === i;
             return (
-              <div key={i} className={`shrink-0 border-r border-white/5 ${isToday ? 'bg-teal-500/[0.04]' : ''}`} style={{ width: 150 }}>
+              <div key={i} className={`border-r border-white/5 ${weekdaysOnly ? 'flex-1 min-w-[100px]' : 'shrink-0'} ${isToday ? 'bg-teal-500/[0.04]' : ''}`} style={weekdaysOnly ? undefined : { width: 150 }}>
                 <div className={`h-9 sticky top-0 z-10 flex items-center justify-center border-b border-white/5 ${isToday ? 'bg-teal-600/20 text-teal-300' : 'bg-[#12121a] text-neutral-300'}`}>
                   <span className="text-[11px] font-bold uppercase tracking-widest">{dayNames[i]} {pad(day.getDate())}</span>
                 </div>
