@@ -116,6 +116,7 @@ function normalizeTask(t: any) {
     generatesCards: !!t.generatesCards,
     templateId: t.templateId || '',
     occurrenceKey: t.occurrenceKey || '',
+    isMeeting: !!t.isMeeting,
     timerElapsed: t.timerElapsed || 0,
     durationMin: t.durationMin || 0,
     createdAt: t.createdAt || t.dueDate || getBrasiliaDate(),
@@ -1418,14 +1419,14 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                    </div>
 
                    {todayCount > 0 && (
-                     <button onClick={() => setActiveTab('today')} className="h-11 px-3 sm:px-4 flex items-center justify-center gap-2 rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shrink-0 bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 shadow-[0_0_15px_rgba(239,68,68,0.15)]" title="Ver no Meu Dia">
+                     <button onClick={() => setActiveTab('today')} className="h-11 px-3 sm:px-4 flex items-center justify-center gap-2 rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all flex-1 sm:flex-none bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 shadow-[0_0_15px_rgba(239,68,68,0.15)]" title="Ver no Meu Dia">
                        <AlertTriangle size={15} /> <span className="whitespace-nowrap">{todayCount} pra hoje</span>
                      </button>
                    )}
 
                    {tasksForClosure.length > 0 && (
-                      <button onClick={() => setClosureModal(true)} className="h-11 w-11 sm:w-auto px-0 sm:px-6 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] shrink-0">
-                        <Mail size={16}/> <span className="whitespace-nowrap hidden sm:inline">Fechar Semana</span>
+                      <button onClick={() => setClosureModal(true)} className="h-11 flex-1 sm:flex-none sm:w-auto px-2 sm:px-6 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)]">
+                        <Mail size={16}/> <span className="whitespace-nowrap">Fechar Semana</span>
                       </button>
                     )}
                 </div>
@@ -1580,11 +1581,12 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                               
                               {/* Badges do Cartão */}
                               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   {client && <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-white/5 text-neutral-300 font-bold max-w-[140px] truncate border border-white/5"><Building2 size={10} /> {client.name}</span>}
                                   <span className={`flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md border font-bold ${prStyle.bg} ${prStyle.text} ${prStyle.border}`}>
                                     <span className={`w-1 h-1 rounded-full ${prStyle.dot}`} /> {t.priority}
                                   </span>
+                                  {t.isMeeting && t.scheduledStart && <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20 font-bold" title="Reunião agendada"><CalendarDays size={10} /> Reunião</span>}
                                   {alertBadge}
                                 </div>
                                 
@@ -2681,8 +2683,8 @@ function buildGCalLink(task: any, clientName: string) {
   if (isNaN(start.getTime())) return '#';
   const durMin = task.durationMin && task.durationMin > 0 ? task.durationMin : 60;
   const end = new Date(start.getTime() + durMin * 60000);
-  // Título no padrão "CLIENTE - DEMANDA"
-  const title = clientName ? `${clientName} - ${task.title || 'Demanda'}` : (task.title || 'Demanda');
+  // Título no padrão "NOME DO CLIENTE | TÍTULO DA DEMANDA" (cliente em caixa alta)
+  const title = clientName ? `${clientName.toUpperCase()} | ${task.title || 'Demanda'}` : (task.title || 'Demanda');
   // Descrição: só o contexto (sem o cliente) + checklist, se houver
   let details = task.description || '';
   const checklist = Array.isArray(task.checklist) ? task.checklist : [];
@@ -3050,6 +3052,19 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
     if (link !== '#') window.open(link, '_blank', 'noopener');
   };
 
+  const doMeeting = (task: any, day: Date, hour: number, minute: number) => {
+    const start = new Date(day); start.setHours(hour, minute, 0, 0);
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: toLocalInput(start), isMeeting: true } : t));
+  };
+
+  const doExecute = (task: any, day: Date, hour: number, minute: number) => {
+    const start = new Date(day); start.setHours(hour, minute, 0, 0);
+    const value = toLocalInput(start);
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, status: 'inprogress', isMeeting: false } : t));
+    const link = buildGCalLink({ ...task, scheduledStart: value }, clientName(task.clientId));
+    if (link !== '#') window.open(link, '_blank', 'noopener');
+  };
+
   // Arraste (colocar/mover) e redimensionar via Pointer Events
   const dragRef = useRef<any>(null);
   const resizeRef = useRef<any>(null);
@@ -3067,6 +3082,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
   const [cRecur, setCRecur] = useState('none'); // 'none' | 'daily' | 'weekly'
   const [cShowBoard, setCShowBoard] = useState(false);
   const [cErr, setCErr] = useState('');
+  const [scheduleChoice, setScheduleChoice] = useState<any>(null);
 
   const openCreateAt = (e: React.MouseEvent, day: Date) => {
     const rect = (e.currentTarget as Element).getBoundingClientRect();
@@ -3165,7 +3181,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
     const day = days[drop.dayIndex];
     if (!day) return;
     if (d.mode === 'place') {
-      scheduleAndStart(d.task, day, drop.hour, drop.minute);
+      setScheduleChoice({ task: d.task, day, hour: drop.hour, minute: drop.minute });
     } else {
       const start = new Date(day); start.setHours(drop.hour, drop.minute, 0, 0);
       setSchedule(d.task.id, toLocalInput(start));
@@ -3212,13 +3228,17 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
       </div>
 
       {/* Navegação de semana */}
-      <div className="flex items-center justify-center flex-wrap gap-2 shrink-0 border-t border-[#27272a] pt-4">
-        <button onClick={() => shiftWeek(-1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors shrink-0"><ChevronLeft size={18} /></button>
-        <span className="text-sm font-bold text-white px-1 whitespace-nowrap">{weekLabel}</span>
-        <button onClick={() => shiftWeek(1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors shrink-0"><ChevronRight size={18} /></button>
-        <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
-        <button onClick={goToday} className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 hover:bg-teal-500/20 transition-colors shrink-0">Hoje</button>
-        <button onClick={() => setWeekdaysOnly(!weekdaysOnly)} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-colors shrink-0 ${weekdaysOnly ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'}`} title="Alternar fim de semana">{weekdaysOnly ? 'Dias úteis' : 'Todos os dias'}</button>
+      <div className="flex flex-col items-center gap-3 shrink-0 border-t border-[#27272a] pt-4 sm:flex-row sm:justify-center">
+        <div className="flex items-center justify-center gap-3">
+          <button onClick={() => shiftWeek(-1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors shrink-0"><ChevronLeft size={18} /></button>
+          <span className="text-base sm:text-sm font-bold text-white px-2 whitespace-nowrap">{weekLabel}</span>
+          <button onClick={() => shiftWeek(1)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors shrink-0"><ChevronRight size={18} /></button>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-px h-5 bg-white/10 mx-1 hidden sm:block" />
+          <button onClick={goToday} className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 hover:bg-teal-500/20 transition-colors shrink-0">Hoje</button>
+          <button onClick={() => setWeekdaysOnly(!weekdaysOnly)} className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-colors shrink-0 ${weekdaysOnly ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-white/5 text-neutral-400 border-white/10 hover:text-white'}`} title="Alternar fim de semana">{weekdaysOnly ? 'Dias úteis' : 'Todos os dias'}</button>
+        </div>
       </div>
 
       {/* Grade 24h */}
@@ -3290,6 +3310,36 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
       {ghost && (
         <div className="fixed z-[300] pointer-events-none px-3 py-2 rounded-lg bg-teal-600 border border-teal-400 shadow-2xl text-[11px] font-bold text-white max-w-[220px] truncate" style={{ left: ghost.x, top: ghost.y, transform: 'translate(-50%, 18px)' }}>
           {ghost.label}
+        </div>
+      )}
+
+      {scheduleChoice && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center px-3 pt-3 pb-24 sm:p-4 z-[95] fade-in" onClick={() => setScheduleChoice(null)}>
+          <div className="w-full max-w-sm rounded-3xl bg-[#12121a] border border-[#27272a] shadow-2xl overflow-hidden animate-modal-pop" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-[#27272a] bg-[#0f0f13]">
+              <h3 className="font-display font-bold text-lg text-white">Como agendar?</h3>
+              <p className="text-[12px] text-neutral-400 mt-1 leading-snug truncate">{scheduleChoice.task.title} · {pad(scheduleChoice.hour)}:{pad(scheduleChoice.minute)}</p>
+            </div>
+            <div className="p-5 flex flex-col gap-3 bg-[#09090b]">
+              <button onClick={() => { doMeeting(scheduleChoice.task, scheduleChoice.day, scheduleChoice.hour, scheduleChoice.minute); setScheduleChoice(null); }} className="flex items-start gap-3 text-left p-4 rounded-2xl border border-[#27272a] bg-[#12121a] hover:border-teal-500/40 transition-colors">
+                <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 shrink-0"><CalendarDays size={16} className="text-teal-400" /></div>
+                <div>
+                  <div className="text-sm font-bold text-white">Marcar reunião</div>
+                  <div className="text-[11px] text-neutral-500 mt-0.5 leading-snug">Só marca o horário. Não muda a etapa e não abre o Google Agenda.</div>
+                </div>
+              </button>
+              <button onClick={() => { doExecute(scheduleChoice.task, scheduleChoice.day, scheduleChoice.hour, scheduleChoice.minute); setScheduleChoice(null); }} className="flex items-start gap-3 text-left p-4 rounded-2xl border border-[#27272a] bg-[#12121a] hover:border-indigo-500/40 transition-colors">
+                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 shrink-0"><Play size={16} className="text-indigo-400" /></div>
+                <div>
+                  <div className="text-sm font-bold text-white">Vou executar</div>
+                  <div className="text-[11px] text-neutral-500 mt-0.5 leading-snug">Move para "Em Andamento" e abre o Google Agenda preenchido.</div>
+                </div>
+              </button>
+            </div>
+            <div className="px-6 py-4 border-t border-[#27272a] bg-[#0f0f13] flex justify-end">
+              <button onClick={() => setScheduleChoice(null)} className="text-xs font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
+            </div>
+          </div>
         </div>
       )}
 
