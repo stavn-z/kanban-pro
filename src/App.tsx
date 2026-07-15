@@ -3068,12 +3068,23 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
   const unscheduled = tasks.filter((t: any) => isActionable(t) && !t.scheduledStart);
 
   const tasksOnDay = (day: Date) => tasks.filter((t: any) => {
-    if (t.templateId) return false; // instâncias geradas aparecem só no quadro
     if (!t.scheduledStart) return false;
     const s = new Date(t.scheduledStart);
     const sameDay = s.getFullYear() === day.getFullYear() && s.getMonth() === day.getMonth() && s.getDate() === day.getDate();
+
+    if (t.templateId) {
+      // Instância gerada: aparece só no dia em que ela de fato está marcada (mesmo se você já a moveu)
+      return sameDay;
+    }
     if (sameDay) return true;
-    if (!isActionable(t)) return false;
+    if (!t.generatesCards || !isActionable(t)) return false;
+
+    // Modelo (recorrência): não mostra a repetição virtual num dia que já tem uma instância própria gerada,
+    // pra você editar só aquela ocorrência sem mexer no padrão inteiro.
+    const dayStr = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+    const hasOwnInstance = tasks.some((x: any) => x.templateId === t.id && x.occurrenceKey === `${t.id}|${dayStr}`);
+    if (hasOwnInstance) return false;
+
     if (t.recurrence === 'daily') return true;                                  // repete todo dia
     if (t.recurrence === 'weekly' && s.getDay() === day.getDay()) return true;  // mesmo dia da semana
     return false;
@@ -3353,7 +3364,11 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
                         </div>
                         <div className="absolute top-1 right-1 flex gap-1">
                           <button onPointerDown={(e) => e.stopPropagation()} onClick={() => { const d = new Date(t.scheduledStart); setEsDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`); setEsTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`); setEsDur(durationOf(t)); setEditSchedule(t); }} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-white hover:bg-black/60" title="Editar horário/duração"><Pencil size={11} /></button>
-                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => cycleRecurrence(t.id)} className={`p-1 rounded hover:bg-black/60 ${t.recurrence && t.recurrence !== 'none' ? 'bg-teal-500/50 text-white' : 'bg-black/40 text-neutral-400 hover:text-teal-300'}`} title={t.recurrence === 'daily' ? 'Repete todo dia (clique: semana)' : t.recurrence === 'weekly' ? 'Repete toda semana (clique: parar)' : 'Repetir (clique: dia → semana)'}><RotateCcw size={11} /></button>
+                          {t.templateId ? (
+                            <span className="p-1 rounded bg-purple-500/30 text-purple-200" title="Gerado por uma recorrência — mover isto não muda o padrão, só esta ocorrência"><RotateCcw size={11} /></span>
+                          ) : (
+                            <button onPointerDown={(e) => e.stopPropagation()} onClick={() => cycleRecurrence(t.id)} className={`p-1 rounded hover:bg-black/60 ${t.recurrence && t.recurrence !== 'none' ? 'bg-teal-500/50 text-white' : 'bg-black/40 text-neutral-400 hover:text-teal-300'}`} title={t.recurrence === 'daily' ? 'Repete todo dia (clique: semana)' : t.recurrence === 'weekly' ? 'Repete toda semana (clique: parar)' : 'Repetir (clique: dia → semana)'}><RotateCcw size={11} /></button>
+                          )}
                           <a href={buildGCalLink(t, cn)} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} className="p-1 rounded bg-black/40 text-teal-300 hover:bg-black/60" title="Abrir no Google Agenda"><ExternalLink size={11} /></a>
                           <button onPointerDown={(e) => e.stopPropagation()} onClick={() => { if (t.agendaOnly) { onDeleteTask(t.id); } else { setSchedule(t.id, ''); } }} className="p-1 rounded bg-black/40 text-neutral-400 hover:text-red-400 hover:bg-black/60" title={t.agendaOnly ? 'Excluir evento' : 'Desagendar'}><X size={11} /></button>
                         </div>
@@ -3385,10 +3400,14 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
             <div className="p-5 flex flex-col gap-4 bg-[#09090b]">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Duração</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-2">
                   {[30, 60, 90, 120].map(m => (
                     <button key={m} onClick={() => setScDuration(m)} className={`flex-1 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest border transition-colors ${scDuration === m ? 'bg-teal-500/15 text-teal-300 border-teal-500/40' : 'bg-[#12121a] text-neutral-500 border-[#27272a] hover:text-neutral-300'}`}>{m < 60 ? `${m}min` : `${m / 60}h${m % 60 ? '30' : ''}`}</button>
                   ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" min={5} step={5} value={scDuration} onChange={e => setScDuration(Math.max(5, parseInt(e.target.value) || 0))} className="w-24 bg-[#12121a] border border-[#27272a] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-teal-500 transition-colors" />
+                  <span className="text-[11px] text-neutral-500">minutos exatos {![30, 60, 90, 120].includes(scDuration) && <span className="text-amber-400 font-bold">(valor atual da demanda)</span>}</span>
                 </div>
               </div>
               <div>
@@ -3445,10 +3464,14 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Duração</label>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap mb-2">
                   {[30, 60, 90, 120, 180].map(m => (
                     <button key={m} onClick={() => setEsDur(m)} className={`flex-1 min-w-[64px] py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest border transition-colors ${esDur === m ? 'bg-teal-500/15 text-teal-300 border-teal-500/40' : 'bg-[#12121a] text-neutral-500 border-[#27272a] hover:text-neutral-300'}`}>{m < 60 ? `${m}min` : `${m / 60}h${m % 60 ? '30' : ''}`}</button>
                   ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" min={5} step={5} value={esDur} onChange={e => setEsDur(Math.max(5, parseInt(e.target.value) || 0))} className="w-24 bg-[#12121a] border border-[#27272a] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-teal-500 transition-colors" />
+                  <span className="text-[11px] text-neutral-500">minutos exatos {![30, 60, 90, 120, 180].includes(esDur) && <span className="text-amber-400 font-bold">(valor atual da demanda)</span>}</span>
                 </div>
                 <p className="text-[10px] text-neutral-600 mt-2 ml-1">Funciona mesmo se a demanda já estiver "Em Andamento" — só ajusta o horário e a duração na Agenda.</p>
               </div>
