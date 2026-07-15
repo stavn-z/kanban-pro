@@ -118,6 +118,7 @@ function normalizeTask(t: any) {
     templateId: t.templateId || '',
     occurrenceKey: t.occurrenceKey || '',
     isMeeting: !!t.isMeeting,
+    scheduledDurationMin: t.scheduledDurationMin || 0,
     timerElapsed: t.timerElapsed || 0,
     durationMin: t.durationMin || 0,
     createdAt: t.createdAt || t.dueDate || getBrasiliaDate(),
@@ -571,7 +572,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         news.push({
           id: `inst_${t.id}_${todayStr}`,
           title: t.title, description: t.description || '', priority: t.priority || 'Média',
-          durationMin: t.durationMin || 0, clientId: t.clientId || '', responsibleId: t.responsibleId,
+          durationMin: t.durationMin || 0, scheduledDurationMin: t.scheduledDurationMin || t.durationMin || 0, clientId: t.clientId || '', responsibleId: t.responsibleId,
           startDate: todayStr, dueDate: '', status: 'todo', waitingFor: '',
           checklist: (t.checklist || []).map((c: any) => ({ id: nextId(), text: c.text, done: false })),
           timerRunning: false, timerStart: null, timerElapsed: 0,
@@ -913,6 +914,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
         templateId: f.templateId || '',
         occurrenceKey: f.occurrenceKey || '',
         isMeeting: !!f.isMeeting,
+        scheduledDurationMin: f.scheduledDurationMin || 0,
         history: [histEntry('created')]
       };
       setTasks((prev) => [...prev, newTask]);
@@ -955,6 +957,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
             templateId: f.templateId || '',
             occurrenceKey: f.occurrenceKey || '',
             isMeeting: !!f.isMeeting,
+            scheduledDurationMin: f.scheduledDurationMin || 0,
             timerRunning, timerElapsed, timerStart,
             createdAt: t.createdAt || getBrasiliaDate(),
             completedAt: (finalStatus === 'done' || finalStatus === 'formalize') ? (t.completedAt || getBrasiliaDate()) : t.completedAt,
@@ -2708,7 +2711,7 @@ function buildGCalLink(task: any, clientName: string, label?: string) {
   if (!task.scheduledStart) return '#';
   const start = new Date(task.scheduledStart);
   if (isNaN(start.getTime())) return '#';
-  const durMin = task.durationMin && task.durationMin > 0 ? task.durationMin : 60;
+  const durMin = task.scheduledDurationMin && task.scheduledDurationMin > 0 ? task.scheduledDurationMin : (task.durationMin && task.durationMin > 0 ? task.durationMin : 60);
   const end = new Date(start.getTime() + durMin * 60000);
   // Título no padrão "PREFIXO NOME DO CLIENTE | TÍTULO DA DEMANDA" (cliente em caixa alta)
   const prefix = GCAL_LABELS[label || 'reuniao'] || '';
@@ -3076,18 +3079,21 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
       // Instância gerada: aparece só no dia em que ela de fato está marcada (mesmo se você já a moveu)
       return sameDay;
     }
-    if (sameDay) return true;
-    if (!t.generatesCards || !isActionable(t)) return false;
 
-    // Modelo (recorrência): não mostra a repetição virtual num dia que já tem uma instância própria gerada,
-    // pra você editar só aquela ocorrência sem mexer no padrão inteiro.
-    const dayStr = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
-    const hasOwnInstance = tasks.some((x: any) => x.templateId === t.id && x.occurrenceKey === `${t.id}|${dayStr}`);
-    if (hasOwnInstance) return false;
+    if (!isActionable(t)) return false;
 
-    if (t.recurrence === 'daily') return true;                                  // repete todo dia
-    if (t.recurrence === 'weekly' && s.getDay() === day.getDay()) return true;  // mesmo dia da semana
-    return false;
+    const matchesDay = sameDay || t.recurrence === 'daily' || (t.recurrence === 'weekly' && s.getDay() === day.getDay());
+    if (!matchesDay) return false;
+
+    if (t.generatesCards) {
+      // Modelo: não mostra (nem no próprio dia original) se já existir uma instância própria gerada pra este dia —
+      // a instância assume o lugar dele ali, pra editar só aquela ocorrência sem mexer no padrão inteiro.
+      const dayStr = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+      const hasOwnInstance = tasks.some((x: any) => x.templateId === t.id && x.occurrenceKey === `${t.id}|${dayStr}`);
+      if (hasOwnInstance) return false;
+    }
+
+    return true;
   });
 
   const cycleRecurrence = (taskId: string) => setTasks((prev: any) => prev.map((t: any) => {
@@ -3105,7 +3111,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
     const datePart = value.slice(0, 10);
     return { ...t, scheduledStart: value, startDate: (t.agendaOnly || t.generatesCards) ? t.startDate : datePart };
   }));
-  const setDuration = (taskId: string, dur: number) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, durationMin: dur } : t));
+  const setDuration = (taskId: string, dur: number) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, scheduledDurationMin: dur } : t));
 
   const scheduleAndStart = (task: any, day: Date, hour: number, minute: number) => {
     const start = new Date(day); start.setHours(hour, minute, 0, 0);
@@ -3118,14 +3124,14 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
   const doMeeting = (task: any, day: Date, hour: number, minute: number, durationMin: number) => {
     const start = new Date(day); start.setHours(hour, minute, 0, 0);
     const value = toLocalInput(start);
-    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, startDate: value.slice(0, 10), durationMin, isMeeting: true } : t));
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, startDate: value.slice(0, 10), scheduledDurationMin: durationMin, isMeeting: true } : t));
   };
 
   const doExecute = (task: any, day: Date, hour: number, minute: number, durationMin: number, label: string) => {
     const start = new Date(day); start.setHours(hour, minute, 0, 0);
     const value = toLocalInput(start);
-    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, startDate: value.slice(0, 10), durationMin, status: 'inprogress', isMeeting: false } : t));
-    const link = buildGCalLink({ ...task, scheduledStart: value, durationMin }, clientName(task.clientId), label);
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, startDate: value.slice(0, 10), scheduledDurationMin: durationMin, status: 'inprogress', isMeeting: false } : t));
+    const link = buildGCalLink({ ...task, scheduledStart: value, scheduledDurationMin: durationMin }, clientName(task.clientId), label);
     if (link !== '#') window.open(link, '_blank', 'noopener');
   };
 
@@ -3174,6 +3180,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
         title: upper(cTitle.trim()), clientId: cClient, durationMin: String(cDur),
         startDate: cRecur === 'none' ? cDate : '', status: 'todo', scheduledStart: value,
         recurrence: cRecur, agendaOnly: false, generatesCards: cRecur !== 'none',
+        scheduledDurationMin: cDur,
       });
       setCreateSlot(null);
       return;
@@ -3184,13 +3191,13 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
       startDate: '', dueDate: '', status: 'todo', waitingFor: '', checklist: [],
       timerRunning: false, timerStart: null, timerElapsed: 0,
       createdAt: getBrasiliaDate(), completedAt: '',
-      scheduledStart: value, recurrence: cRecur, agendaOnly: true, history: [histEntry('created')],
+      scheduledStart: value, scheduledDurationMin: cDur, recurrence: cRecur, agendaOnly: true, history: [histEntry('created')],
     };
     setTasks((prev: any) => [...prev, newTask]);
     setCreateSlot(null);
   };
 
-  const durationOf = (t: any) => (t.durationMin && t.durationMin > 0 ? t.durationMin : 60);
+  const durationOf = (t: any) => (t.scheduledDurationMin && t.scheduledDurationMin > 0 ? t.scheduledDurationMin : (t.durationMin && t.durationMin > 0 ? t.durationMin : 60));
 
   const beginDrag = (e: React.PointerEvent, task: any, mode: 'place' | 'move') => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -3251,7 +3258,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
     const day = days[drop.dayIndex];
     if (!day) return;
     if (d.mode === 'place') {
-      setScDuration(d.task.durationMin && d.task.durationMin > 0 ? d.task.durationMin : 60);
+      setScDuration(d.task.scheduledDurationMin && d.task.scheduledDurationMin > 0 ? d.task.scheduledDurationMin : (d.task.durationMin && d.task.durationMin > 0 ? d.task.durationMin : 60));
       setScLabel('reuniao');
       setScheduleChoice({ task: d.task, day, hour: drop.hour, minute: drop.minute });
     } else {
@@ -3399,7 +3406,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
             </div>
             <div className="p-5 flex flex-col gap-4 bg-[#09090b]">
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Duração</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Duração de hoje na Agenda</label>
                 <div className="flex gap-2 mb-2">
                   {[30, 60, 90, 120].map(m => (
                     <button key={m} onClick={() => setScDuration(m)} className={`flex-1 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest border transition-colors ${scDuration === m ? 'bg-teal-500/15 text-teal-300 border-teal-500/40' : 'bg-[#12121a] text-neutral-500 border-[#27272a] hover:text-neutral-300'}`}>{m < 60 ? `${m}min` : `${m / 60}h${m % 60 ? '30' : ''}`}</button>
@@ -3407,8 +3414,9 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="number" min={5} step={5} value={scDuration} onChange={e => setScDuration(Math.max(5, parseInt(e.target.value) || 0))} className="w-24 bg-[#12121a] border border-[#27272a] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-teal-500 transition-colors" />
-                  <span className="text-[11px] text-neutral-500">minutos exatos {![30, 60, 90, 120].includes(scDuration) && <span className="text-amber-400 font-bold">(valor atual da demanda)</span>}</span>
+                  <span className="text-[11px] text-neutral-500">minutos exatos {![30, 60, 90, 120].includes(scDuration) && <span className="text-amber-400 font-bold">(valor já agendado)</span>}</span>
                 </div>
+                <p className="text-[10px] text-neutral-600 mt-2 ml-1 leading-relaxed">Isso só define o bloco na Agenda — não altera o "Est. Minutos" da demanda.</p>
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 block ml-1">Como aparece no Google Agenda</label>
@@ -3471,16 +3479,16 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="number" min={5} step={5} value={esDur} onChange={e => setEsDur(Math.max(5, parseInt(e.target.value) || 0))} className="w-24 bg-[#12121a] border border-[#27272a] rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-teal-500 transition-colors" />
-                  <span className="text-[11px] text-neutral-500">minutos exatos {![30, 60, 90, 120, 180].includes(esDur) && <span className="text-amber-400 font-bold">(valor atual da demanda)</span>}</span>
+                  <span className="text-[11px] text-neutral-500">minutos exatos {![30, 60, 90, 120, 180].includes(esDur) && <span className="text-amber-400 font-bold">(valor já agendado)</span>}</span>
                 </div>
-                <p className="text-[10px] text-neutral-600 mt-2 ml-1">Funciona mesmo se a demanda já estiver "Em Andamento" — só ajusta o horário e a duração na Agenda.</p>
+                <p className="text-[10px] text-neutral-600 mt-2 ml-1">Funciona mesmo se a demanda já estiver "Em Andamento" — ajusta só o horário e a duração na Agenda, sem tocar no "Est. Minutos" da demanda.</p>
               </div>
             </div>
             <div className="px-6 py-5 border-t border-[#27272a] bg-[#0f0f13] flex items-center justify-end gap-3">
               <button onClick={() => setEditSchedule(null)} className="text-xs font-bold uppercase tracking-widest px-5 py-3.5 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
               <button onClick={() => {
                 if (!esDate || !esTime) return;
-                setTasks((prev: any) => prev.map((t: any) => t.id === editSchedule.id ? { ...t, scheduledStart: `${esDate}T${esTime}`, startDate: (t.agendaOnly || t.generatesCards) ? t.startDate : esDate, durationMin: esDur } : t));
+                setTasks((prev: any) => prev.map((t: any) => t.id === editSchedule.id ? { ...t, scheduledStart: `${esDate}T${esTime}`, startDate: (t.agendaOnly || t.generatesCards) ? t.startDate : esDate, scheduledDurationMin: esDur } : t));
                 setEditSchedule(null);
               }} className="text-xs font-black uppercase tracking-widest px-8 py-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)]">Salvar</button>
             </div>
