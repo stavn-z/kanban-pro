@@ -3087,7 +3087,13 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
 
   const recurLabel = (r: string) => r === 'daily' ? 'dia' : r === 'weekly' ? 'sem' : '';
 
-  const setSchedule = (taskId: string, value: string) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, scheduledStart: value } : t));
+  const setSchedule = (taskId: string, value: string) => setTasks((prev: any) => prev.map((t: any) => {
+    if (t.id !== taskId) return t;
+    if (!value) return { ...t, scheduledStart: value };
+    // A Data de Início acompanha o dia agendado na Agenda (não se aplica a modelos recorrentes)
+    const datePart = value.slice(0, 10);
+    return { ...t, scheduledStart: value, startDate: (t.agendaOnly || t.generatesCards) ? t.startDate : datePart };
+  }));
   const setDuration = (taskId: string, dur: number) => setTasks((prev: any) => prev.map((t: any) => t.id === taskId ? { ...t, durationMin: dur } : t));
 
   const scheduleAndStart = (task: any, day: Date, hour: number, minute: number) => {
@@ -3100,13 +3106,14 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
 
   const doMeeting = (task: any, day: Date, hour: number, minute: number, durationMin: number) => {
     const start = new Date(day); start.setHours(hour, minute, 0, 0);
-    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: toLocalInput(start), durationMin, isMeeting: true } : t));
+    const value = toLocalInput(start);
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, startDate: value.slice(0, 10), durationMin, isMeeting: true } : t));
   };
 
   const doExecute = (task: any, day: Date, hour: number, minute: number, durationMin: number, label: string) => {
     const start = new Date(day); start.setHours(hour, minute, 0, 0);
     const value = toLocalInput(start);
-    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, durationMin, status: 'inprogress', isMeeting: false } : t));
+    setTasks((prev: any) => prev.map((t: any) => t.id === task.id ? { ...t, scheduledStart: value, startDate: value.slice(0, 10), durationMin, status: 'inprogress', isMeeting: false } : t));
     const link = buildGCalLink({ ...task, scheduledStart: value, durationMin }, clientName(task.clientId), label);
     if (link !== '#') window.open(link, '_blank', 'noopener');
   };
@@ -3139,7 +3146,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
   const openCreateAt = (e: React.MouseEvent, day: Date) => {
     const rect = (e.currentTarget as Element).getBoundingClientRect();
     const rawMin = ((e.clientY - rect.top) / ROW_H) * 60;
-    const snapped = Math.max(0, Math.min(23 * 60 + 30, Math.round(rawMin / 30) * 30));
+    const snapped = Math.max(0, Math.min(23 * 60 + 45, Math.round(rawMin / 15) * 15));
     setCTitle(''); setCClient(''); setCDur(60); setCRecur('none'); setCShowBoard(false); setCErr('');
     setCDate(`${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`);
     setCTime(`${pad(Math.floor(snapped / 60))}:${pad(snapped % 60)}`);
@@ -3197,7 +3204,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
     if (idx < 0) return null;
     const rect = col.getBoundingClientRect();
     const rawMin = ((y - rect.top) / ROW_H) * 60;
-    const snapped = Math.max(0, Math.min(23 * 60 + 30, Math.round(rawMin / 30) * 30));
+    const snapped = Math.max(0, Math.min(23 * 60 + 45, Math.round(rawMin / 15) * 15));
     return { dayIndex: idx, hour: Math.floor(snapped / 60), minute: snapped % 60, minutes: snapped };
   };
 
@@ -3206,7 +3213,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
     if (!d) return;
     if (d.mode === 'resize') {
       const rawMin = ((e.clientY - d.blockTop) / ROW_H) * 60;
-      const snapped = Math.min(24 * 60, Math.max(30, Math.round(rawMin / 30) * 30));
+      const snapped = Math.min(24 * 60, Math.max(15, Math.round(rawMin / 15) * 15));
       resizeRef.current = { id: d.task.id, dur: snapped };
       setResizePreview({ id: d.task.id, dur: snapped });
     } else {
@@ -3450,7 +3457,7 @@ function CalendarView({ tasks, setTasks, clients, handleRequestMove, user, onCre
               <button onClick={() => setEditSchedule(null)} className="text-xs font-bold uppercase tracking-widest px-5 py-3.5 rounded-xl text-neutral-500 hover:text-white transition-colors">Cancelar</button>
               <button onClick={() => {
                 if (!esDate || !esTime) return;
-                setTasks((prev: any) => prev.map((t: any) => t.id === editSchedule.id ? { ...t, scheduledStart: `${esDate}T${esTime}`, durationMin: esDur } : t));
+                setTasks((prev: any) => prev.map((t: any) => t.id === editSchedule.id ? { ...t, scheduledStart: `${esDate}T${esTime}`, startDate: (t.agendaOnly || t.generatesCards) ? t.startDate : esDate, durationMin: esDur } : t));
                 setEditSchedule(null);
               }} className="text-xs font-black uppercase tracking-widest px-8 py-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)]">Salvar</button>
             </div>
