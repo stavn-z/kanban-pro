@@ -551,7 +551,48 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     return () => clearInterval(id);
   }, [tasks, user]);
 
-  // (Recorrências ficam apenas na Agenda; não geram cards automaticamente no quadro.)
+  // Materialização de recorrências: gera 1 card real por ocorrência (modelos "geram cards")
+  // Protegido contra duplicidade: nunca gera se já existir uma instância com o mesmo occurrenceKey.
+  useEffect(() => {
+    const gen = () => {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const pad2 = (n: number) => String(n).padStart(2, '0');
+      const todayStr = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+      const existingKeys = new Set(tasks.map((t: any) => t.occurrenceKey).filter(Boolean));
+      const news: any[] = [];
+      tasks.forEach((t: any) => {
+        if (!t.generatesCards || !t.scheduledStart) return;
+        if (t.responsibleId !== user.id) return;
+        const s = new Date(t.scheduledStart);
+        const occToday = t.recurrence === 'daily' || (t.recurrence === 'weekly' && s.getDay() === today.getDay());
+        if (!occToday) return;
+        const key = `${t.id}|${todayStr}`;
+        if (existingKeys.has(key)) return; // já existe instância de hoje para este modelo: não duplica
+        news.push({
+          id: `inst_${t.id}_${todayStr}`,
+          title: t.title, description: t.description || '', priority: t.priority || 'Média',
+          durationMin: t.durationMin || 0, clientId: t.clientId || '', responsibleId: t.responsibleId,
+          startDate: todayStr, dueDate: '', status: 'todo', waitingFor: '',
+          checklist: (t.checklist || []).map((c: any) => ({ id: nextId(), text: c.text, done: false })),
+          timerRunning: false, timerStart: null, timerElapsed: 0,
+          createdAt: getBrasiliaDate(), completedAt: '',
+          scheduledStart: `${todayStr}T${pad2(s.getHours())}:${pad2(s.getMinutes())}`,
+          recurrence: 'none', agendaOnly: false, generatesCards: false, isMeeting: false,
+          templateId: t.id, occurrenceKey: key,
+          history: [histEntry('created')],
+        });
+      });
+      if (news.length) setTasks((prev: any) => {
+        const haveKeys = new Set(prev.map((p: any) => p.occurrenceKey).filter(Boolean));
+        const haveIds = new Set(prev.map((p: any) => p.id));
+        const add = news.filter(n => !haveKeys.has(n.occurrenceKey) && !haveIds.has(n.id));
+        return add.length ? [...prev, ...add] : prev;
+      });
+    };
+    gen();
+    const gid = setInterval(gen, 60000);
+    return () => clearInterval(gid);
+  }, [tasks, user]);
 
   // Busca dados da Nuvem (o RLS já filtra o que cada usuário pode ver)
   useEffect(() => {
@@ -772,7 +813,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
     const dayMs = (s: string) => { if (!s) return null; const [y, m, d] = s.slice(0, 10).split('-'); return new Date(+y, +m - 1, +d).setHours(0, 0, 0, 0); };
     return tasks.filter(t => {
       if (t.responsibleId !== user.id) return false;
-      if (['done', 'cancelled', 'formalize'].includes(t.status) || t.agendaOnly) return false;
+      if (['done', 'cancelled', 'formalize'].includes(t.status) || t.agendaOnly || t.generatesCards || t.templateId) return false;
       const due = dayMs(t.dueDate);
       const start = dayMs(t.startDate);
       const sched = dayMs(t.scheduledStart);
@@ -1562,6 +1603,7 @@ function KanbanMain({ user, setUser, onLogout }: { user: any, setUser: any, onLo
                                     <span className={`w-1 h-1 rounded-full ${prStyle.dot}`} /> {t.priority}
                                   </span>
                                   {t.isMeeting && t.scheduledStart && <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20 font-bold" title="Reunião agendada"><CalendarDays size={10} /> Reunião</span>}
+                                  {t.templateId && <span className="flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-1 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 font-bold" title="Gerado por uma recorrência da Agenda"><RotateCcw size={10} /> Recorrente</span>}
                                   {alertBadge}
                                 </div>
                                 
